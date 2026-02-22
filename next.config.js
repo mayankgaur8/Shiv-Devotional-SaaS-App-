@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: 'export',
-  basePath: '/Shiv-Devotional-SaaS-App',
+  basePath: '/Shiv-Devotional-SaaS-App-',
   trailingSlash: true,
   images: {
     unoptimized: true,
