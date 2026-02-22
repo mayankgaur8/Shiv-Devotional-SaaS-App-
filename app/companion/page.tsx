@@ -60,10 +60,13 @@ export default function CompanionPage() {
       } else {
         setMessages(prev => [...prev, { role: 'assistant', content: data.message }])
       }
-    } catch {
+    } catch (err: unknown) {
+      const isStaticDeploy = err instanceof TypeError && String(err).includes('fetch')
       setMessages(prev => [...prev, {
         role: 'assistant',
-        content: `Jai Shiv! 🙏 Abhi connection mein thoda rukawat hai. Thodi der mein dobara try karo.\n\nTab tak, "ॐ नमः शिवाय" ka jaap karo — Shiva hamesha sunta hai. 🕉️`,
+        content: isStaticDeploy
+          ? `Jai Shiv! 🙏\n\nAI Sahayak ke liye ek live server chahiye — GitHub Pages sirf static files serve karta hai.\n\n**Local use ke liye:** App ko apne computer par chalao:\n\`npm run dev\`\n\nTab AI Sahayak poori tarah kaam karega. 🕉️\n\nTab tak, yeh mantras aapke saath hain:\n• ॐ नमः शिवाय\n• ॐ त्र्यम्बकं यजामहे\n\nHar Har Mahadev! 🔱`
+          : `Jai Shiv! 🙏 Abhi connection mein thoda rukawat hai. Thodi der mein dobara try karo.\n\nTab tak, "ॐ नमः शिवाय" ka jaap karo — Shiva hamesha sunta hai. 🕉️`,
       }])
     } finally {
       setLoading(false)
