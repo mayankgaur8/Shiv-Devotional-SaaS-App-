@@ -8,6 +8,7 @@ import {
   categories,
   devotionalMedia,
   devotionalPlaylists,
+  getMediaCandidateUrls,
   getMediaUrl,
   mediaSourceConfig,
 } from '@/src/data/devotionalMedia'
@@ -41,6 +42,16 @@ function formatTime(seconds: number): string {
   const mins = Math.floor(seconds / 60)
   const secs = Math.floor(seconds % 60)
   return `${mins}:${secs.toString().padStart(2, '0')}`
+}
+
+function itemSourceLabel(item: DevotionalMediaItem, currentSrc: string): string {
+  if (!currentSrc) return item.src
+  try {
+    const url = new URL(currentSrc)
+    return `${url.pathname}${url.search}`
+  } catch {
+    return currentSrc
+  }
 }
 
 function buildShareText(item: DevotionalMediaItem): string {
@@ -102,6 +113,7 @@ export default function BhajanClientPage() {
   const [isBuffering, setIsBuffering] = useState(false)
   const [isOffline, setIsOffline] = useState(false)
   const [resumePosition, setResumePosition] = useState<ResumePosition | null>(null)
+  const [playerErrorMessage, setPlayerErrorMessage] = useState<string | null>(null)
 
   useEffect(() => {
     const slowNet = typeof navigator !== 'undefined' && 'connection' in navigator
@@ -213,6 +225,7 @@ export default function BhajanClientPage() {
   }, [])
 
   const handleMediaError = useCallback((id: string, reason = 'media-load-failed') => {
+    console.error('[bhajan:media-error]', { id, reason })
     setMediaErrors(prev => {
       const next = new Set(prev)
       next.add(id)
@@ -238,10 +251,12 @@ export default function BhajanClientPage() {
     setCurrentTime(options?.startAt || 0)
     setIsTrackLoading(true)
     setIsBuffering(false)
+    setPlayerErrorMessage(null)
     retryCountRef.current.set(trackId, 0)
     pendingSeekRef.current = options?.startAt || 0
 
-    audio.src = getMediaUrl(track.src, track.cdnSrc)
+    const candidateUrls = getMediaCandidateUrls(track.src, track.cdnSrc)
+    audio.src = candidateUrls[0] || getMediaUrl(track.src, track.cdnSrc)
     audio.load()
 
     if (options?.autoplay === false) {
@@ -257,6 +272,7 @@ export default function BhajanClientPage() {
       .catch(() => {
         setIsPlaying(nextPlayState(true, 'pause'))
         setIsTrackLoading(false)
+        setPlayerErrorMessage(`Playback was blocked for ${sanitizeText(track.title)}. Tap play again to retry.`)
       })
   }, [addToRecent, mediaErrors])
 
@@ -401,7 +417,11 @@ export default function BhajanClientPage() {
         preload="metadata"
         controls
         aria-label="ShivMandir audio player"
-        className="sr-only"
+        className={currentTrack ? 'mb-4 w-full rounded-xl border border-white/10 bg-black/20' : 'sr-only'}
+        onLoadStart={() => {
+          setIsTrackLoading(true)
+          setPlayerErrorMessage(null)
+        }}
         onTimeUpdate={(e) => {
           const time = (e.target as HTMLAudioElement).currentTime
           setCurrentTime(time)
@@ -460,20 +480,27 @@ export default function BhajanClientPage() {
         onError={() => {
           if (currentTrackId) {
             const retries = retryCountRef.current.get(currentTrackId) || 0
-            if (retries < 2 && currentTrack) {
-              retryCountRef.current.set(currentTrackId, retries + 1)
-              const retryUrl = `${getMediaUrl(currentTrack.src, currentTrack.cdnSrc)}${getMediaUrl(currentTrack.src, currentTrack.cdnSrc).includes('?') ? '&' : '?'}retry=${retries + 1}`
+            if (currentTrack) {
+              const candidateUrls = getMediaCandidateUrls(currentTrack.src, currentTrack.cdnSrc)
+              const nextCandidate = candidateUrls[retries + 1]
               const audio = audioRef.current
-              if (audio) {
-                audio.src = retryUrl
+              if (audio && nextCandidate) {
+                retryCountRef.current.set(currentTrackId, retries + 1)
+                audio.src = nextCandidate
                 audio.load()
                 audio.play().catch(() => {
-                  handleMediaError(currentTrackId, 'audio-retries-exhausted')
+                  console.error('[bhajan:audio-fallback-failed]', {
+                    id: currentTrackId,
+                    attemptedSrc: nextCandidate,
+                  })
+                  handleMediaError(currentTrackId, 'audio-fallback-failed')
                 })
+                return
               }
-            } else {
-              handleMediaError(currentTrackId, 'audio-retries-exhausted')
             }
+
+            setPlayerErrorMessage(`Unable to load ${sanitizeText(currentTrack?.title || 'this track')}. Check that the local file is present.`)
+            handleMediaError(currentTrackId, 'audio-retries-exhausted')
           }
           setIsPlaying(false)
           setIsTrackLoading(false)
@@ -490,6 +517,12 @@ export default function BhajanClientPage() {
       {!storageAvailable && (
         <div className="mb-4 rounded-xl border border-yellow-500/30 bg-yellow-500/10 px-4 py-2 text-xs text-yellow-200">
           Favorites and recently played are in temporary mode because browser storage is unavailable.
+        </div>
+      )}
+
+      {playerErrorMessage && (
+        <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-2 text-xs text-red-200">
+          {playerErrorMessage}
         </div>
       )}
 
@@ -734,7 +767,7 @@ export default function BhajanClientPage() {
 
                     {unavailable ? (
                       <div className="mt-3 rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-xs text-bhasma-400">
-                        Audio not available. Please add file at {getMediaUrl(item.src, item.cdnSrc)}
+                        Audio not available. Expected local file URL: {item.src}
                       </div>
                     ) : (
                       <div className="mt-3 flex flex-wrap gap-2">
@@ -834,6 +867,9 @@ export default function BhajanClientPage() {
               <p className="text-bhasma-500 text-xs truncate">{currentTrack.artist}</p>
               {isTrackLoading && <p className="text-[10px] text-saffron-300 mt-1">Loading audio metadata...</p>}
               {isBuffering && <p className="text-[10px] text-yellow-300 mt-1">Buffering on slow network...</p>}
+              {!isTrackLoading && !isBuffering && (
+                <p className="text-[10px] text-bhasma-500 mt-1 break-all">Source: {itemSourceLabel(currentTrack, audioRef.current?.currentSrc || '')}</p>
+              )}
             </div>
 
             <div className="flex-1">

@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { devotionalMedia, getMediaBySlug, getMediaUrl } from '@/src/data/devotionalMedia'
+import { devotionalMedia, getMediaBySlug, getMediaCandidateUrls, getMediaUrl } from '@/src/data/devotionalMedia'
 
 interface TrackPageProps {
   params: { slug: string }
@@ -81,7 +81,12 @@ export default function BhajanTrackPage({ params }: TrackPageProps) {
         <p className="text-bhasma-400 text-sm leading-relaxed mb-5">{item.description}</p>
 
         {item.type === 'audio' ? (
-          <audio controls preload="metadata" className="w-full" src={getMediaUrl(item.src, item.cdnSrc)} />
+          <audio controls preload="metadata" className="w-full">
+            {getMediaCandidateUrls(item.src, item.cdnSrc).map((src) => (
+              <source key={src} src={src} type="audio/mpeg" />
+            ))}
+            Your browser does not support audio playback.
+          </audio>
         ) : (
           <video controls preload="metadata" className="w-full" src={getMediaUrl(item.src, item.cdnSrc)} />
         )}

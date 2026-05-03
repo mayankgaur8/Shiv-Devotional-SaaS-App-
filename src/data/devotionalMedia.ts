@@ -50,6 +50,34 @@ export const mediaSourceConfig = {
   maxSimultaneousLoads: 3,
 }
 
+function appendMediaAuthQuery(candidate: string): string {
+  if (!mediaSourceConfig.token && !mediaSourceConfig.signature) return candidate
+
+  const separator = candidate.includes('?') ? '&' : '?'
+  const tokenPart = mediaSourceConfig.token ? `token=${encodeURIComponent(mediaSourceConfig.token)}` : ''
+  const sigPart = mediaSourceConfig.signature ? `sig=${encodeURIComponent(mediaSourceConfig.signature)}` : ''
+  const query = [tokenPart, sigPart].filter(Boolean).join('&')
+  return query ? `${candidate}${separator}${query}` : candidate
+}
+
+export const getLocalMediaUrl = (src: string): string => src
+
+export const getMediaCandidateUrls = (src: string, cdnSrc?: string): string[] => {
+  const candidates = new Set<string>()
+
+  if (cdnSrc) {
+    candidates.add(appendMediaAuthQuery(cdnSrc))
+  }
+
+  if (mediaSourceConfig.baseUrl && src.startsWith('/')) {
+    candidates.add(appendMediaAuthQuery(`${mediaSourceConfig.baseUrl}${src}`))
+  }
+
+  candidates.add(getLocalMediaUrl(src))
+
+  return Array.from(candidates)
+}
+
 const defaultThumb = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="675" viewBox="0 0 1200 675"><defs><linearGradient id="g" x1="0" x2="1" y1="0" y2="1"><stop offset="0%" stop-color="%230c1a26"/><stop offset="100%" stop-color="%237a2c05"/></linearGradient></defs><rect width="1200" height="675" fill="url(%23g)"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23d4af37" font-size="58" font-family="Arial, sans-serif">ShivMandir Devotional</text></svg>'
 
 export const devotionalMedia: DevotionalMediaItem[] = [
@@ -134,13 +162,13 @@ export const devotionalMedia: DevotionalMediaItem[] = [
     allowDownload: false,
   },
   {
-    id: 'shiv-tandav-stotram-audio',
+    id: 'shiv-tandav',
     slug: 'shiv-tandav-stotram-audio',
     title: 'Shiv Tandav Stotram (Audio)',
     artist: 'Vedic Recitation',
     type: 'audio',
     category: 'Stotra',
-    src: '/media/audio/shiv-tandav-stotram.mp3',
+    src: '/audio/ShivaTandavaStotram.mp3',
     cdnSrc: process.env.NEXT_PUBLIC_SHIV_TANDAV_AUDIO_CDN,
     thumbnail: defaultThumb,
     duration: '07:30',
@@ -286,7 +314,7 @@ export const devotionalPlaylists: DevotionalPlaylist[] = [
     title: 'Shivratri Special',
     description: 'Intense devotion for the night of Shiva.',
     icon: '🌙',
-    trackIds: ['shiv-tandav-stotram-audio', 'shiv-tandav-video', 'har-har-mahadev'],
+    trackIds: ['shiv-tandav', 'shiv-tandav-video', 'har-har-mahadev'],
   },
   {
     id: 'maha-mrityunjaya-healing',
@@ -298,14 +326,7 @@ export const devotionalPlaylists: DevotionalPlaylist[] = [
 ]
 
 export const getMediaUrl = (src: string, cdnSrc?: string): string => {
-  const candidate = cdnSrc || (!src.startsWith('/') ? src : `${mediaSourceConfig.baseUrl}${src}`)
-  if (!mediaSourceConfig.token && !mediaSourceConfig.signature) return candidate
-
-  const separator = candidate.includes('?') ? '&' : '?'
-  const tokenPart = mediaSourceConfig.token ? `token=${encodeURIComponent(mediaSourceConfig.token)}` : ''
-  const sigPart = mediaSourceConfig.signature ? `sig=${encodeURIComponent(mediaSourceConfig.signature)}` : ''
-  const query = [tokenPart, sigPart].filter(Boolean).join('&')
-  return query ? `${candidate}${separator}${query}` : candidate
+  return getMediaCandidateUrls(src, cdnSrc)[0] || getLocalMediaUrl(src)
 }
 
 export const durationToSeconds = (duration: string): number => {
