@@ -52,28 +52,42 @@ jobs:
           NEXT_PUBLIC_RAZORPAY_KEY: dummy
           NEXT_PUBLIC_RAZORPAY_KEY_ID: dummy
 
+      - name: Debug build output
+        run: |
+          echo "=== repo root ==="
+          ls -la
+          echo "=== .next ==="
+          ls -la .next
+          echo "=== .next/standalone ==="
+          ls -la .next/standalone
+
       - name: Package standalone output
         run: |
           rm -rf release
+          mkdir -p release
+
+          # Flatten standalone contents to release root so server.js
+          # lands at release/server.js and Azure can start with: node server.js
+          cp -R .next/standalone/* release/
+
+          # Static client assets: server.js resolves these from .next/static
+          # relative to its own directory (process.cwd() == release/).
           mkdir -p release/.next
+          cp -R .next/static release/.next/static
 
-          # Keep the full standalone tree so the Azure startup command
-          # "node .next/standalone/server.js" resolves correctly.
-          cp -R .next/standalone release/.next/standalone
+          # Public assets served at runtime.
+          cp -R public release/public
 
-          # standalone/server.js uses __dirname as its app root, so static
-          # assets must live at .next/standalone/.next/static and public
-          # files at .next/standalone/public.
-          cp -R .next/static release/.next/standalone/.next/static
-          cp -R public       release/.next/standalone/public
+          echo "=== release ==="
+          ls -la release
 
-          # Fail fast if the entry point is missing.
-          test -f release/.next/standalone/server.js
+          # Hard-fail if the entry point is missing.
+          test -f release/server.js
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: shivmandir-standalone
+          name: node-app
           path: release
           if-no-files-found: error
 
@@ -88,7 +102,7 @@ jobs:
       - name: Download build artifact
         uses: actions/download-artifact@v4
         with:
-          name: shivmandir-standalone
+          name: node-app
           path: release
 
       - name: Login to Azure
