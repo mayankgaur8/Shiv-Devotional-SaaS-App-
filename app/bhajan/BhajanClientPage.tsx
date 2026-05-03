@@ -1,6 +1,7 @@
 'use client'
 
 import dynamic from 'next/dynamic'
+import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
@@ -8,11 +9,14 @@ import {
   devotionalMedia,
   devotionalPlaylists,
   getMediaUrl,
+  mediaSourceConfig,
 } from '@/src/data/devotionalMedia'
 import { trackEvent } from '@/src/lib/analytics'
 import { filterAndSortMedia, isMissingMedia, nextPlayState, toRecentlyPlayed, toggleFavoriteId } from '@/src/lib/bhajan-utils'
 import { safeStorageGet, safeStorageSet } from '@/src/lib/safe-storage'
+import { sanitizeText } from '@/src/lib/sanitize'
 import type { DevotionalMediaItem, SortOption } from '@/src/data/devotionalMedia'
+import LazyRender from '@/components/bhajan/LazyRender'
 
 const VideoMediaCard = dynamic(() => import('@/components/bhajan/VideoMediaCard'), {
   ssr: false,
@@ -40,13 +44,40 @@ function formatTime(seconds: number): string {
 }
 
 function buildShareText(item: DevotionalMediaItem): string {
-  return `🕉️ ${item.title}\n\n${item.lyricsHindi}\n\n${item.transliteration}\n\nMeaning: ${item.meaning}\n\nHar Har Mahadev 🔱`
+  return `🕉️ ${sanitizeText(item.title)}\n\n${sanitizeText(item.lyricsHindi)}\n\n${sanitizeText(item.transliteration)}\n\nMeaning: ${sanitizeText(item.meaning)}\n\nHar Har Mahadev 🔱`
+}
+
+interface ResumePosition {
+  trackId: string
+  time: number
+  updatedAt: number
+}
+
+function formatResumeLabel(seconds: number): string {
+  const sec = Math.max(0, Math.floor(seconds))
+  const mins = Math.floor(sec / 60)
+  const remainder = sec % 60
+  return `${mins}:${remainder.toString().padStart(2, '0')}`
+}
+
+function pushGlobalMediaError(payload: Record<string, unknown>): void {
+  if (typeof window === 'undefined') return
+  const holder = window as Window & { __MEDIA_ERRORS__?: Array<Record<string, unknown>> }
+  if (!Array.isArray(holder.__MEDIA_ERRORS__)) {
+    holder.__MEDIA_ERRORS__ = []
+  }
+  holder.__MEDIA_ERRORS__.push({ ...payload, timestamp: Date.now() })
 }
 
 export default function BhajanClientPage() {
   const pathname = usePathname()
   const audioRef = useRef<HTMLAudioElement>(null)
+  const retryCountRef = useRef<Map<string, number>>(new Map())
+  const pendingSeekRef = useRef<number | null>(null)
+  const listenStartMsRef = useRef<number | null>(null)
+  const lastSavedSecondRef = useRef<number>(-1)
 
+  const [rawSearchTerm, setRawSearchTerm] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
   const [activeCategory, setActiveCategory] = useState<(typeof categories)[number]>('All')
   const [sortBy, setSortBy] = useState<SortOption>('popular')
@@ -68,6 +99,9 @@ export default function BhajanClientPage() {
   const [isInitializing, setIsInitializing] = useState(true)
   const [storageAvailable, setStorageAvailable] = useState(true)
   const [isTrackLoading, setIsTrackLoading] = useState(false)
+  const [isBuffering, setIsBuffering] = useState(false)
+  const [isOffline, setIsOffline] = useState(false)
+  const [resumePosition, setResumePosition] = useState<ResumePosition | null>(null)
 
   useEffect(() => {
     const slowNet = typeof navigator !== 'undefined' && 'connection' in navigator
@@ -79,14 +113,40 @@ export default function BhajanClientPage() {
     try {
       const storedFav = safeStorageGet('shiv-favorites')
       const storedRecent = safeStorageGet('shiv-recently-played')
+      const storedResume = safeStorageGet('shiv-last-track-position')
       if (storedFav) setFavorites(JSON.parse(storedFav))
       if (storedRecent) setRecentlyPlayed(JSON.parse(storedRecent))
+      if (storedResume) {
+        const parsed = JSON.parse(storedResume) as ResumePosition
+        if (parsed?.trackId && typeof parsed.time === 'number') {
+          setResumePosition(parsed)
+        }
+      }
     } catch {
       setStorageAvailable(false)
     }
 
-    return () => clearTimeout(timer)
+    setIsOffline(typeof navigator !== 'undefined' ? !navigator.onLine : false)
+
+    const handleOnline = () => setIsOffline(false)
+    const handleOffline = () => setIsOffline(true)
+    window.addEventListener('online', handleOnline)
+    window.addEventListener('offline', handleOffline)
+
+    return () => {
+      clearTimeout(timer)
+      window.removeEventListener('online', handleOnline)
+      window.removeEventListener('offline', handleOffline)
+    }
   }, [])
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setSearchTerm(rawSearchTerm)
+    }, 300)
+
+    return () => window.clearTimeout(timer)
+  }, [rawSearchTerm])
 
   useEffect(() => {
     const ok = safeStorageSet('shiv-favorites', JSON.stringify(favorites))
@@ -107,6 +167,7 @@ export default function BhajanClientPage() {
     audioRef.current.pause()
     setIsPlaying(false)
     setIsTrackLoading(false)
+    setIsBuffering(false)
   }, [pathname])
 
   const baseItems = useMemo(() => {
@@ -151,19 +212,20 @@ export default function BhajanClientPage() {
     })
   }, [])
 
-  const handleMediaError = useCallback((id: string) => {
+  const handleMediaError = useCallback((id: string, reason = 'media-load-failed') => {
     setMediaErrors(prev => {
       const next = new Set(prev)
       next.add(id)
       return next
     })
+    pushGlobalMediaError({ id, reason })
   }, [])
 
   const addToRecent = useCallback((id: string) => {
     setRecentlyPlayed(prev => toRecentlyPlayed(prev, id, 12))
   }, [])
 
-  const handleSelectTrack = useCallback((trackId: string) => {
+  const handleSelectTrack = useCallback((trackId: string, options?: { autoplay?: boolean; startAt?: number }) => {
     const audio = audioRef.current
     const track = devotionalMedia.find(item => item.id === trackId && item.type === 'audio')
     if (!audio || !track) return
@@ -173,11 +235,19 @@ export default function BhajanClientPage() {
     }
 
     setCurrentTrackId(trackId)
-    setCurrentTime(0)
+    setCurrentTime(options?.startAt || 0)
     setIsTrackLoading(true)
+    setIsBuffering(false)
+    retryCountRef.current.set(trackId, 0)
+    pendingSeekRef.current = options?.startAt || 0
 
     audio.src = getMediaUrl(track.src, track.cdnSrc)
     audio.load()
+
+    if (options?.autoplay === false) {
+      setIsPlaying(false)
+      return
+    }
 
     audio.play()
       .then(() => {
@@ -189,6 +259,15 @@ export default function BhajanClientPage() {
         setIsTrackLoading(false)
       })
   }, [addToRecent, mediaErrors])
+
+  useEffect(() => {
+    if (!resumePosition || currentTrackId) return
+
+    const trackExists = devotionalMedia.some(item => item.id === resumePosition.trackId && item.type === 'audio')
+    if (!trackExists) return
+
+    handleSelectTrack(resumePosition.trackId, { autoplay: false, startAt: resumePosition.time })
+  }, [currentTrackId, handleSelectTrack, resumePosition])
 
   const togglePlayPause = useCallback(() => {
     const audio = audioRef.current
@@ -291,6 +370,17 @@ export default function BhajanClientPage() {
     window.open(`https://wa.me/?text=${message}`, '_blank', 'noopener,noreferrer')
   }, [])
 
+  const saveResumePosition = useCallback((trackId: string, time: number) => {
+    const payload: ResumePosition = {
+      trackId,
+      time,
+      updatedAt: Date.now(),
+    }
+    const ok = safeStorageSet('shiv-last-track-position', JSON.stringify(payload))
+    if (!ok) setStorageAvailable(false)
+    setResumePosition(payload)
+  }, [])
+
   const recentlyPlayedItems = useMemo(() => {
     const idMap = new Map(devotionalMedia.map(item => [item.id, item]))
     return recentlyPlayed
@@ -312,35 +402,117 @@ export default function BhajanClientPage() {
         controls
         aria-label="ShivMandir audio player"
         className="sr-only"
-        onTimeUpdate={(e) => setCurrentTime((e.target as HTMLAudioElement).currentTime)}
-        onLoadedMetadata={(e) => {
-          setDuration((e.target as HTMLAudioElement).duration || 0)
-          setIsTrackLoading(false)
+        onTimeUpdate={(e) => {
+          const time = (e.target as HTMLAudioElement).currentTime
+          setCurrentTime(time)
+
+          if (!currentTrackId) return
+          const second = Math.floor(time)
+          if (second % 5 === 0 && second !== lastSavedSecondRef.current) {
+            lastSavedSecondRef.current = second
+            saveResumePosition(currentTrackId, second)
+          }
         }}
-        onCanPlay={() => setIsTrackLoading(false)}
+        onLoadedMetadata={(e) => {
+          const el = e.target as HTMLAudioElement
+          setDuration(el.duration || 0)
+
+          if (pendingSeekRef.current !== null) {
+            el.currentTime = pendingSeekRef.current
+            setCurrentTime(pendingSeekRef.current)
+            pendingSeekRef.current = null
+          }
+
+          setIsTrackLoading(false)
+          setIsBuffering(false)
+        }}
+        onCanPlay={() => {
+          setIsTrackLoading(false)
+          setIsBuffering(false)
+        }}
+        onWaiting={() => setIsBuffering(true)}
+        onStalled={() => setIsBuffering(true)}
         onPause={() => {
           setIsPlaying(nextPlayState(true, 'pause'))
+          setIsBuffering(false)
           if (currentTrack) {
-            trackEvent('media_pause', { media_id: currentTrack.id, media_title: currentTrack.title })
+            const now = Date.now()
+            const listenMs = listenStartMsRef.current ? Math.max(0, now - listenStartMsRef.current) : 0
+            trackEvent('media_pause', {
+              media_id: currentTrack.id,
+              media_title: sanitizeText(currentTrack.title),
+              listen_ms: listenMs,
+              drop_off_second: Math.floor(currentTime),
+            })
+            listenStartMsRef.current = null
+            saveResumePosition(currentTrack.id, currentTime)
           }
         }}
         onPlay={() => {
           setIsPlaying(nextPlayState(false, 'play'))
+          setIsBuffering(false)
+          listenStartMsRef.current = Date.now()
           if (currentTrack) {
-            trackEvent('media_play', { media_id: currentTrack.id, media_title: currentTrack.title })
+            trackEvent('media_play', { media_id: currentTrack.id, media_title: sanitizeText(currentTrack.title) })
           }
         }}
         onEnded={handleEnded}
         onError={() => {
-          if (currentTrackId) handleMediaError(currentTrackId)
+          if (currentTrackId) {
+            const retries = retryCountRef.current.get(currentTrackId) || 0
+            if (retries < 2 && currentTrack) {
+              retryCountRef.current.set(currentTrackId, retries + 1)
+              const retryUrl = `${getMediaUrl(currentTrack.src, currentTrack.cdnSrc)}${getMediaUrl(currentTrack.src, currentTrack.cdnSrc).includes('?') ? '&' : '?'}retry=${retries + 1}`
+              const audio = audioRef.current
+              if (audio) {
+                audio.src = retryUrl
+                audio.load()
+                audio.play().catch(() => {
+                  handleMediaError(currentTrackId, 'audio-retries-exhausted')
+                })
+              }
+            } else {
+              handleMediaError(currentTrackId, 'audio-retries-exhausted')
+            }
+          }
           setIsPlaying(false)
           setIsTrackLoading(false)
+          setIsBuffering(false)
         }}
       />
+
+      {isOffline && (
+        <div className="mb-4 rounded-xl border border-neelkanth-500/40 bg-neelkanth-800/40 px-4 py-2 text-xs text-blue-200">
+          Offline Mode - Playing cached content only.
+        </div>
+      )}
 
       {!storageAvailable && (
         <div className="mb-4 rounded-xl border border-yellow-500/30 bg-yellow-500/10 px-4 py-2 text-xs text-yellow-200">
           Favorites and recently played are in temporary mode because browser storage is unavailable.
+        </div>
+      )}
+
+      {resumePosition && !isPlaying && currentTrackId === resumePosition.trackId && (
+        <div className="mb-4 rounded-xl border border-gold-500/30 bg-gold-500/10 px-4 py-3 flex items-center justify-between gap-3">
+          <p className="text-xs text-yellow-200">
+            Continue listening from {formatResumeLabel(resumePosition.time)}
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              if (audioRef.current) {
+                audioRef.current.currentTime = resumePosition.time
+                audioRef.current.play().catch(() => {
+                  // Autoplay can be blocked; keep state paused.
+                })
+              }
+            }}
+            className="px-3 py-1.5 rounded-lg text-xs font-medium bg-gold-500/20 text-yellow-300 border border-gold-500/30"
+            aria-label="Resume listening"
+          >
+            Resume
+          </button>
         </div>
       )}
 
@@ -360,8 +532,8 @@ export default function BhajanClientPage() {
           <input
             id="search-media"
             type="text"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            value={rawSearchTerm}
+            onChange={(e) => setRawSearchTerm(e.target.value)}
             placeholder="Search by title, mantra, or tag"
             className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-2.5 text-sm text-bhasma-200 placeholder:text-bhasma-600 focus:outline-none focus:ring-2 focus:ring-saffron-400/50"
           />
@@ -399,7 +571,7 @@ export default function BhajanClientPage() {
             onClick={() => {
               setActivePlaylistId(null)
               setActiveCategory('All')
-              setSearchTerm('')
+              setRawSearchTerm('')
               setShowOnlyFavorites(false)
             }}
             className="px-3 py-2 rounded-xl text-xs border border-white/10 bg-white/5 text-bhasma-400 hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-saffron-400/60"
@@ -467,7 +639,7 @@ export default function BhajanClientPage() {
                 className="flex-shrink-0 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-left min-w-[220px] hover:border-saffron-500/30"
                 aria-label={`Play recently played ${item.title}`}
               >
-                <p className="text-bhasma-200 text-xs font-medium">{item.title}</p>
+                  <p className="text-bhasma-200 text-xs font-medium">{sanitizeText(item.title)}</p>
                 <p className="text-bhasma-500 text-xs">{item.category} • {item.duration}</p>
               </button>
             ))}
@@ -481,7 +653,7 @@ export default function BhajanClientPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {favoriteItems.map((item) => (
               <div key={item.id} className="rounded-xl border border-white/10 bg-white/3 p-3">
-                <p className="text-bhasma-200 text-xs font-medium truncate">{item.title}</p>
+                <p className="text-bhasma-200 text-xs font-medium truncate">{sanitizeText(item.title)}</p>
                 <p className="text-bhasma-500 text-xs">{item.category} • {item.duration}</p>
               </div>
             ))}
@@ -512,8 +684,8 @@ export default function BhajanClientPage() {
                 const isCurrent = currentTrackId === item.id
 
                 return (
+                  <LazyRender key={item.id} minHeight={220}>
                   <article
-                    key={item.id}
                     className={`rounded-2xl p-4 border ${
                       isCurrent
                         ? 'bg-saffron-500/10 border-saffron-500/40'
@@ -523,8 +695,8 @@ export default function BhajanClientPage() {
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div>
-                        <h3 className="text-bhasma-100 text-sm font-semibold">{item.title}</h3>
-                        <p className="text-bhasma-500 text-xs">{item.artist}</p>
+                        <h3 className="text-bhasma-100 text-sm font-semibold">{sanitizeText(item.title)}</h3>
+                        <p className="text-bhasma-500 text-xs">{sanitizeText(item.artist)}</p>
                         <p className="text-bhasma-600 text-xs mt-1">{item.category} • {item.duration}</p>
                         {isCurrent && (
                           <span className="inline-block mt-1 text-[10px] px-2 py-0.5 rounded-full bg-saffron-500/20 text-saffron-300 border border-saffron-500/30">
@@ -558,11 +730,11 @@ export default function BhajanClientPage() {
                       </div>
                     </div>
 
-                    <p className="text-bhasma-500 text-xs leading-relaxed mt-2">{item.description}</p>
+                    <p className="text-bhasma-500 text-xs leading-relaxed mt-2">{sanitizeText(item.description)}</p>
 
                     {unavailable ? (
                       <div className="mt-3 rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-xs text-bhasma-400">
-                        Audio not available. Please add file at {getMediaUrl(item.src)}
+                        Audio not available. Please add file at {getMediaUrl(item.src, item.cdnSrc)}
                       </div>
                     ) : (
                       <div className="mt-3 flex flex-wrap gap-2">
@@ -575,6 +747,16 @@ export default function BhajanClientPage() {
                         >
                           {isCurrent && isPlaying ? 'Pause in Player' : 'Play in Player'}
                         </button>
+                        {item.allowDownload && (
+                          <a
+                            href={getMediaUrl(item.src, item.cdnSrc)}
+                            download
+                            className="px-3 py-1.5 rounded-lg text-xs font-medium bg-neelkanth-500/20 text-blue-300 border border-neelkanth-500/30 hover:bg-neelkanth-500/30"
+                            aria-label={`Download ${item.title}`}
+                          >
+                            Download
+                          </a>
+                        )}
                         <button
                           type="button"
                           onClick={() => copyMantra(item)}
@@ -591,6 +773,13 @@ export default function BhajanClientPage() {
                         >
                           Share WhatsApp
                         </button>
+                        <Link
+                          href={`/bhajan/${item.slug}`}
+                          className="px-3 py-1.5 rounded-lg text-xs font-medium bg-white/5 text-bhasma-300 border border-white/10 hover:bg-white/10"
+                          aria-label={`Open details for ${item.title}`}
+                        >
+                          Details
+                        </Link>
                       </div>
                     )}
 
@@ -598,19 +787,20 @@ export default function BhajanClientPage() {
                       <div className="mt-3 rounded-xl bg-black/20 border border-white/10 p-3 text-xs space-y-2">
                         <div>
                           <p className="text-saffron-300 font-semibold mb-1">Sanskrit / Hindi</p>
-                          <p className="text-bhasma-200 leading-relaxed">{item.lyricsHindi}</p>
+                          <p className="text-bhasma-200 leading-relaxed">{sanitizeText(item.lyricsHindi)}</p>
                         </div>
                         <div>
                           <p className="text-saffron-300 font-semibold mb-1">Transliteration</p>
-                          <p className="text-bhasma-300 leading-relaxed">{item.transliteration}</p>
+                          <p className="text-bhasma-300 leading-relaxed">{sanitizeText(item.transliteration)}</p>
                         </div>
                         <div>
                           <p className="text-saffron-300 font-semibold mb-1">Meaning</p>
-                          <p className="text-bhasma-400 leading-relaxed">{item.meaning}</p>
+                          <p className="text-bhasma-400 leading-relaxed">{sanitizeText(item.meaning)}</p>
                         </div>
                       </div>
                     )}
                   </article>
+                  </LazyRender>
                 )
               })}
             </div>
@@ -620,7 +810,9 @@ export default function BhajanClientPage() {
             <h2 className="text-xs uppercase tracking-widest text-bhasma-500 font-semibold mb-4">Video Library</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               {filteredSortedMedia.filter(item => item.type === 'video').map((item) => (
-                <VideoMediaCard key={item.id} item={item} onError={handleMediaError} />
+                <LazyRender key={item.id} minHeight={360}>
+                  <VideoMediaCard item={item} onError={(id) => handleMediaError(id, 'video-load-failed')} />
+                </LazyRender>
               ))}
             </div>
           </section>
@@ -630,6 +822,8 @@ export default function BhajanClientPage() {
       <section className="rounded-xl p-4 bg-white/3 border border-white/10 text-xs text-bhasma-500 space-y-1">
         <p>Use only licensed, self-created, or royalty-free devotional media.</p>
         <p>Configure media source with NEXT_PUBLIC_MEDIA_BASE_URL for CDN or alternate hosting.</p>
+        <p>Signed media access is supported with NEXT_PUBLIC_MEDIA_TOKEN / NEXT_PUBLIC_MEDIA_SIGNATURE.</p>
+        <p>Max simultaneous media loads target: {mediaSourceConfig.maxSimultaneousLoads}.</p>
       </section>
 
       {currentTrack && (
@@ -639,6 +833,7 @@ export default function BhajanClientPage() {
               <p className="text-bhasma-100 text-sm font-semibold truncate">{currentTrack.title}</p>
               <p className="text-bhasma-500 text-xs truncate">{currentTrack.artist}</p>
               {isTrackLoading && <p className="text-[10px] text-saffron-300 mt-1">Loading audio metadata...</p>}
+              {isBuffering && <p className="text-[10px] text-yellow-300 mt-1">Buffering on slow network...</p>}
             </div>
 
             <div className="flex-1">

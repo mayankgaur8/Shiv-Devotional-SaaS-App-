@@ -1,0 +1,44 @@
+{
+  "version": "1.0.0",
+  "updatedAt": "2026-05-03T00:00:00.000Z",
+  "items": [
+    {
+      "id": "om-namah-shivaya",
+      "slug": "om-namah-shivaya",
+      "title": "Om Namah Shivaya",
+      "artist": "Sacred Chants",
+      "type": "audio",
+      "category": "Mantra",
+      "src": "/media/audio/om-namah-shivaya.mp3",
+      "thumbnail": "/media/images/om-namah-shivaya.jpg",
+      "duration": "10:00",
+      "description": "The Panchakshara mantra invoking Shiva as pure consciousness.",
+      "lyricsHindi": "ॐ नमः शिवाय।",
+      "transliteration": "Om Namah Shivaya",
+      "meaning": "I bow to Lord Shiva, the auspicious inner Self.",
+      "tags": ["Peace", "Chanting", "Daily Sadhana"],
+      "releaseDate": "2025-01-15",
+      "popularity": 98,
+      "allowDownload": false
+    },
+    {
+      "id": "maha-mrityunjaya",
+      "slug": "maha-mrityunjaya-mantra",
+      "title": "Maha Mrityunjaya Mantra",
+      "artist": "Sacred Chants",
+      "type": "audio",
+      "category": "Mantra",
+      "src": "/media/audio/maha-mrityunjaya.mp3",
+      "thumbnail": "/media/images/maha-mrityunjaya.jpg",
+      "duration": "08:15",
+      "description": "Healing and protective mantra dedicated to Tryambaka Shiva.",
+      "lyricsHindi": "ॐ त्र्यम्बकं यजामहे सुगन्धिं पुष्टिवर्धनम्।",
+      "transliteration": "Om Tryambakam Yajamahe Sugandhim Pushtivardhanam",
+      "meaning": "We worship the three-eyed One who nourishes all beings and frees us from bondage.",
+      "tags": ["Healing", "Protection", "Meditation"],
+      "releaseDate": "2025-03-02",
+      "popularity": 100,
+      "allowDownload": false
+    }
+  ]
+}

@@ -1,8 +1,9 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import Image from 'next/image'
-import { getMediaUrl } from '@/src/data/devotionalMedia'
+import { getMediaUrl, mediaSourceConfig } from '@/src/data/devotionalMedia'
+import { sanitizeText } from '@/src/lib/sanitize'
 import type { DevotionalMediaItem } from '@/src/data/devotionalMedia'
 
 interface VideoMediaCardProps {
@@ -18,32 +19,67 @@ const categoryBadge: Record<string, string> = {
   Meditation: 'bg-green-500/20 text-green-300',
 }
 
+let activeVideoLoads = 0
+
 export default function VideoMediaCard({ item, onError }: VideoMediaCardProps) {
   const [useYoutube, setUseYoutube] = useState(false)
   const [videoFailed, setVideoFailed] = useState(false)
   const [thumbFailed, setThumbFailed] = useState(false)
   const [isLoadingVideo, setIsLoadingVideo] = useState(true)
+  const [retryCount, setRetryCount] = useState(0)
+  const [mountPlayer, setMountPlayer] = useState(false)
+  const [loadLimited, setLoadLimited] = useState(false)
+  const countedRef = useRef(false)
 
   const videoSrc = useMemo(() => getMediaUrl(item.src, item.cdnSrc), [item.cdnSrc, item.src])
   const thumbSrc = useMemo(() => getMediaUrl(item.thumbnail), [item.thumbnail])
 
+  const canMount = mountPlayer || retryCount > 0
+
+  useEffect(() => {
+    if (!canMount || countedRef.current) return
+
+    if (activeVideoLoads >= mediaSourceConfig.maxSimultaneousLoads) {
+      setLoadLimited(true)
+      return
+    }
+
+    countedRef.current = true
+    activeVideoLoads += 1
+
+    return () => {
+      if (countedRef.current) {
+        activeVideoLoads = Math.max(0, activeVideoLoads - 1)
+        countedRef.current = false
+      }
+    }
+  }, [canMount])
+
   return (
     <article className="rounded-2xl overflow-hidden border border-white/10 bg-white/3 hover:border-white/20 transition-colors">
       <div className="relative bg-neelkanth-900/60 min-h-[220px]">
-        {!useYoutube && !videoFailed && (
+        {!useYoutube && !videoFailed && canMount && !loadLimited && (
           <>
             {isLoadingVideo && (
               <div className="absolute inset-0 animate-pulse bg-gradient-to-br from-neelkanth-900 via-neelkanth-800 to-saffron-900/40" />
             )}
             <video
-              src={videoSrc}
+              src={`${videoSrc}${videoSrc.includes('?') ? '&' : '?'}attempt=${retryCount}`}
               controls
               preload="metadata"
               poster={thumbFailed ? undefined : thumbSrc}
               className="w-full h-full max-h-[320px] bg-neelkanth-900"
-              aria-label={`Watch ${item.title}`}
+              aria-label={`Watch ${sanitizeText(item.title)}`}
               onLoadedData={() => setIsLoadingVideo(false)}
+              onWaiting={() => setIsLoadingVideo(true)}
               onError={() => {
+                const nextRetry = retryCount + 1
+                if (nextRetry <= 2) {
+                  setRetryCount(nextRetry)
+                  setIsLoadingVideo(true)
+                  return
+                }
+
                 setVideoFailed(true)
                 setIsLoadingVideo(false)
                 onError(item.id)
@@ -83,12 +119,29 @@ export default function VideoMediaCard({ item, onError }: VideoMediaCardProps) {
           </div>
         )}
 
+        {!useYoutube && !videoFailed && (!canMount || loadLimited) && (
+          <button
+            type="button"
+            onClick={() => {
+              setMountPlayer(true)
+              setLoadLimited(false)
+              setIsLoadingVideo(true)
+            }}
+            className="h-[220px] w-full text-center px-4 bg-gradient-to-br from-neelkanth-900 via-neelkanth-800 to-saffron-900/50 text-bhasma-200 text-sm"
+            aria-label={`Load video ${item.title}`}
+          >
+            {loadLimited ? 'Load Limit Reached' : 'Load Video'}
+            <p className="text-xs text-bhasma-400 mt-2">Tap to mount player and reduce background media load.</p>
+            <p className="text-[10px] text-bhasma-500 mt-1">Max active loads target: {mediaSourceConfig.maxSimultaneousLoads}</p>
+          </button>
+        )}
+
         {useYoutube && item.youtubeId && (
           <div className="relative w-full" style={{ paddingTop: '56.25%' }}>
             <iframe
               className="absolute inset-0 h-full w-full"
               src={`https://www.youtube.com/embed/${item.youtubeId}?rel=0`}
-              title={item.title}
+              title={sanitizeText(item.title)}
               allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
               allowFullScreen
               loading="lazy"
@@ -99,7 +152,7 @@ export default function VideoMediaCard({ item, onError }: VideoMediaCardProps) {
 
       <div className="p-4">
         <div className="flex items-center justify-between gap-2 mb-2">
-          <h3 className="text-bhasma-100 text-sm font-semibold">{item.title}</h3>
+          <h3 className="text-bhasma-100 text-sm font-semibold">{sanitizeText(item.title)}</h3>
           <span className="text-bhasma-500 text-xs">{item.duration}</span>
         </div>
 
@@ -107,10 +160,10 @@ export default function VideoMediaCard({ item, onError }: VideoMediaCardProps) {
           <span className={`text-xs px-2 py-0.5 rounded-full ${categoryBadge[item.category]}`}>
             {item.category}
           </span>
-          <p className="text-bhasma-500 text-xs">{item.artist}</p>
+          <p className="text-bhasma-500 text-xs">{sanitizeText(item.artist)}</p>
         </div>
 
-        <p className="text-bhasma-500 text-xs leading-relaxed">{item.description}</p>
+        <p className="text-bhasma-500 text-xs leading-relaxed">{sanitizeText(item.description)}</p>
 
         <div className="mt-3 flex gap-2">
           {item.youtubeId && !useYoutube && (

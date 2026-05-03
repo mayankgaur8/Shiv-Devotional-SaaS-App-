@@ -4,6 +4,7 @@ export type SortOption = 'popular' | 'latest' | 'duration'
 
 export interface DevotionalMediaItem {
   id: string
+  slug: string
   title: string
   artist: string
   type: MediaType
@@ -21,6 +22,7 @@ export interface DevotionalMediaItem {
   captionsSrc?: string
   releaseDate: string
   popularity: number
+  allowDownload: boolean
 }
 
 export interface DevotionalPlaylist {
@@ -43,6 +45,9 @@ export const categories: Array<'All' | MediaCategory> = [
 export const mediaSourceConfig = {
   // Optional CDN/base URL. Keep empty to serve from local /public.
   baseUrl: process.env.NEXT_PUBLIC_MEDIA_BASE_URL || '',
+  token: process.env.NEXT_PUBLIC_MEDIA_TOKEN || '',
+  signature: process.env.NEXT_PUBLIC_MEDIA_SIGNATURE || '',
+  maxSimultaneousLoads: 3,
 }
 
 const defaultThumb = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="675" viewBox="0 0 1200 675"><defs><linearGradient id="g" x1="0" x2="1" y1="0" y2="1"><stop offset="0%" stop-color="%230c1a26"/><stop offset="100%" stop-color="%237a2c05"/></linearGradient></defs><rect width="1200" height="675" fill="url(%23g)"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23d4af37" font-size="58" font-family="Arial, sans-serif">ShivMandir Devotional</text></svg>'
@@ -50,6 +55,7 @@ const defaultThumb = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000
 export const devotionalMedia: DevotionalMediaItem[] = [
   {
     id: 'om-namah-shivaya',
+    slug: 'om-namah-shivaya',
     title: 'Om Namah Shivaya',
     artist: 'Sacred Chants',
     type: 'audio',
@@ -65,9 +71,11 @@ export const devotionalMedia: DevotionalMediaItem[] = [
     tags: ['Peace', 'Chanting', 'Daily Sadhana'],
     releaseDate: '2025-01-15',
     popularity: 98,
+    allowDownload: false,
   },
   {
     id: 'maha-mrityunjaya',
+    slug: 'maha-mrityunjaya-mantra',
     title: 'Maha Mrityunjaya Mantra',
     artist: 'Sacred Chants',
     type: 'audio',
@@ -83,9 +91,11 @@ export const devotionalMedia: DevotionalMediaItem[] = [
     tags: ['Healing', 'Protection', 'Meditation'],
     releaseDate: '2025-03-02',
     popularity: 100,
+    allowDownload: false,
   },
   {
     id: 'shiv-aarti',
+    slug: 'om-jai-shiv-omkara-aarti',
     title: 'Om Jai Shiv Omkara - Aarti',
     artist: 'Temple Collective',
     type: 'audio',
@@ -101,9 +111,11 @@ export const devotionalMedia: DevotionalMediaItem[] = [
     tags: ['Temple', 'Evening', 'Aarti'],
     releaseDate: '2024-12-20',
     popularity: 95,
+    allowDownload: false,
   },
   {
     id: 'har-har-mahadev',
+    slug: 'har-har-mahadev-bhajan',
     title: 'Har Har Mahadev Bhajan',
     artist: 'Devotional Ensemble',
     type: 'audio',
@@ -119,9 +131,11 @@ export const devotionalMedia: DevotionalMediaItem[] = [
     tags: ['Energy', 'Bhakti', 'Festival'],
     releaseDate: '2025-04-01',
     popularity: 91,
+    allowDownload: false,
   },
   {
     id: 'shiv-tandav-stotram-audio',
+    slug: 'shiv-tandav-stotram-audio',
     title: 'Shiv Tandav Stotram (Audio)',
     artist: 'Vedic Recitation',
     type: 'audio',
@@ -137,9 +151,11 @@ export const devotionalMedia: DevotionalMediaItem[] = [
     tags: ['Stotra', 'Power', 'Focus'],
     releaseDate: '2025-02-10',
     popularity: 96,
+    allowDownload: false,
   },
   {
     id: 'shiv-dhyan-om',
+    slug: 'shiv-dhyan-om-chanting',
     title: 'Shiv Dhyan & Om Chanting',
     artist: 'Meditation Series',
     type: 'audio',
@@ -155,9 +171,11 @@ export const devotionalMedia: DevotionalMediaItem[] = [
     tags: ['Calm', 'Meditation', 'Breathwork'],
     releaseDate: '2025-03-18',
     popularity: 88,
+    allowDownload: false,
   },
   {
     id: 'shiv-tandav-video',
+    slug: 'shiv-tandav-stotram-video',
     title: 'Shiv Tandav Stotram (Video)',
     artist: 'Devotional Video',
     type: 'video',
@@ -175,9 +193,11 @@ export const devotionalMedia: DevotionalMediaItem[] = [
     captionsSrc: '/media/captions/shiv-tandav.vtt',
     releaseDate: '2025-01-30',
     popularity: 94,
+    allowDownload: false,
   },
   {
     id: 'shiv-aarti-video',
+    slug: 'shiv-aarti-temple-live-video',
     title: 'Shiv Aarti Temple Live',
     artist: 'Temple Recording',
     type: 'video',
@@ -195,6 +215,7 @@ export const devotionalMedia: DevotionalMediaItem[] = [
     captionsSrc: '/media/captions/shiv-aarti.vtt',
     releaseDate: '2025-04-20',
     popularity: 90,
+    allowDownload: false,
   },
 ]
 
@@ -237,12 +258,21 @@ export const devotionalPlaylists: DevotionalPlaylist[] = [
 ]
 
 export const getMediaUrl = (src: string, cdnSrc?: string): string => {
-  if (cdnSrc) return cdnSrc
-  if (!src.startsWith('/')) return src
-  return `${mediaSourceConfig.baseUrl}${src}`
+  const candidate = cdnSrc || (!src.startsWith('/') ? src : `${mediaSourceConfig.baseUrl}${src}`)
+  if (!mediaSourceConfig.token && !mediaSourceConfig.signature) return candidate
+
+  const separator = candidate.includes('?') ? '&' : '?'
+  const tokenPart = mediaSourceConfig.token ? `token=${encodeURIComponent(mediaSourceConfig.token)}` : ''
+  const sigPart = mediaSourceConfig.signature ? `sig=${encodeURIComponent(mediaSourceConfig.signature)}` : ''
+  const query = [tokenPart, sigPart].filter(Boolean).join('&')
+  return query ? `${candidate}${separator}${query}` : candidate
 }
 
 export const durationToSeconds = (duration: string): number => {
   const [minutes, seconds] = duration.split(':').map(Number)
   return (minutes || 0) * 60 + (seconds || 0)
+}
+
+export const getMediaBySlug = (slug: string): DevotionalMediaItem | undefined => {
+  return devotionalMedia.find(item => item.slug === slug)
 }
