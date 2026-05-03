@@ -237,6 +237,26 @@ export const devotionalMedia: DevotionalMediaItem[] = [
     popularity: 87,
     allowDownload: false,
   },
+  {
+    id: 'shiv-bhajan-youtube-dvOvu1XCklU',
+    slug: 'shiv-bhajan-dvOvu1XCklU',
+    title: 'Shiv Bhajan',
+    artist: 'Devotional',
+    type: 'video',
+    category: 'Bhajan',
+    src: '',
+    thumbnail: defaultThumb,
+    duration: '00:00',
+    description: 'Devotional Shiv Bhajan.',
+    lyricsHindi: '',
+    transliteration: '',
+    meaning: '',
+    tags: ['Video', 'Bhajan', 'YouTube'],
+    youtubeId: 'dvOvu1XCklU',
+    releaseDate: '2026-05-03',
+    popularity: 85,
+    allowDownload: false,
+  },
 ]
 
 export const devotionalPlaylists: DevotionalPlaylist[] = [
