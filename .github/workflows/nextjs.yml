@@ -24,7 +24,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
           cache: "npm"
 
       - name: Install dependencies
@@ -34,6 +34,7 @@ jobs:
         run: npm run build
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          STATIC_EXPORT: 'true'
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3

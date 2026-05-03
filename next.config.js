@@ -1,9 +1,9 @@
 /** @type {import('next').NextConfig} */
-const isGitHubPages = process.env.GITHUB_ACTIONS === 'true'
+const isStaticExport = process.env.STATIC_EXPORT === 'true'
 
 const nextConfig = {
-  ...(isGitHubPages && {
-    output: 'export',
+  output: isStaticExport ? 'export' : 'standalone',
+  ...(isStaticExport && {
     basePath: '/Shiv-Devotional-SaaS-App-',
     trailingSlash: true,
   }),

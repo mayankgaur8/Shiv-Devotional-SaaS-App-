@@ -37,7 +37,8 @@ function readInsights(): MediaInsights {
     const raw = window.localStorage.getItem(INSIGHTS_KEY)
     if (!raw) return { playCounts: {}, totalListenMs: 0, listenEvents: 0, dropOffPoints: [], playlistHits: {} }
     return JSON.parse(raw) as MediaInsights
-  } catch {
+  } catch (error) {
+    console.error('analytics.ts: invalid localStorage JSON for shiv-analytics-insights, using fallback', error)
     return { playCounts: {}, totalListenMs: 0, listenEvents: 0, dropOffPoints: [], playlistHits: {} }
   }
 }
