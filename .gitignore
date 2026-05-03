@@ -30,3 +30,4 @@ Thumbs.db
 *.tsbuildinfo
 next-env.d.ts
 node_modules
+src/data/temple-donations.json
