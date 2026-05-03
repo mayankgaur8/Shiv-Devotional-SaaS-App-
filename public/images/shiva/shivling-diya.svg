@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" width="800" height="600">
+  <defs>
+    <radialGradient id="bg3" cx="50%" cy="60%" r="70%">
+      <stop offset="0%" stop-color="#2d1500"/>
+      <stop offset="60%" stop-color="#140900"/>
+      <stop offset="100%" stop-color="#080C14"/>
+    </radialGradient>
+    <radialGradient id="flameGlow" cx="50%" cy="30%" r="50%">
+      <stop offset="0%" stop-color="#FFD700" stop-opacity="0.35"/>
+      <stop offset="50%" stop-color="#FF6B35" stop-opacity="0.15"/>
+      <stop offset="100%" stop-color="#FF6B35" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="lingGrad" cx="50%" cy="40%" r="60%">
+      <stop offset="0%" stop-color="#8B6914"/>
+      <stop offset="100%" stop-color="#3d2800"/>
+    </radialGradient>
+  </defs>
+  <rect width="800" height="600" fill="url(#bg3)"/>
+  <!-- Background warm glow -->
+  <ellipse cx="400" cy="400" rx="300" ry="200" fill="url(#flameGlow)"/>
+  <!-- Shivling base (yoni peetha) -->
+  <ellipse cx="400" cy="420" rx="120" ry="35" fill="#5C3D0E" opacity="0.8"/>
+  <ellipse cx="400" cy="410" rx="108" ry="30" fill="#6B4510" opacity="0.9"/>
+  <!-- Shivling body -->
+  <ellipse cx="400" cy="340" rx="55" ry="80" fill="url(#lingGrad)" opacity="0.85"/>
+  <ellipse cx="400" cy="340" rx="45" ry="72" fill="#7a5010" opacity="0.4"/>
+  <!-- Shivling top dome -->
+  <ellipse cx="400" cy="270" rx="40" ry="28" fill="#8B6914" opacity="0.85"/>
+  <!-- Water/abhishek drops -->
+  <ellipse cx="400" cy="268" rx="38" ry="14" fill="#7E96F0" opacity="0.2"/>
+  <!-- Bilva leaves on top -->
+  <ellipse cx="385" cy="260" rx="12" ry="6" fill="#2d5a1b" opacity="0.6" transform="rotate(-30, 385, 260)"/>
+  <ellipse cx="400" cy="255" rx="12" ry="6" fill="#2d5a1b" opacity="0.6"/>
+  <ellipse cx="415" cy="260" rx="12" ry="6" fill="#2d5a1b" opacity="0.6" transform="rotate(30, 415, 260)"/>
+  <!-- Diya (oil lamp) - left -->
+  <ellipse cx="280" cy="428" rx="22" ry="10" fill="#8B6914" opacity="0.8"/>
+  <ellipse cx="280" cy="422" rx="16" ry="8" fill="#6B4510" opacity="0.9"/>
+  <!-- Diya flame - left -->
+  <path d="M280 422 Q274 405 280 392 Q286 405 280 422" fill="#FFD700" opacity="0.9"/>
+  <path d="M280 415 Q276 405 280 397 Q284 405 280 415" fill="#FF8C00" opacity="0.7"/>
+  <ellipse cx="280" cy="392" rx="8" ry="12" fill="#FFD700" opacity="0.2"/>
+  <!-- Diya (oil lamp) - right -->
+  <ellipse cx="520" cy="428" rx="22" ry="10" fill="#8B6914" opacity="0.8"/>
+  <ellipse cx="520" cy="422" rx="16" ry="8" fill="#6B4510" opacity="0.9"/>
+  <!-- Diya flame - right -->
+  <path d="M520 422 Q514 405 520 392 Q526 405 520 422" fill="#FFD700" opacity="0.9"/>
+  <path d="M520 415 Q516 405 520 397 Q524 405 520 415" fill="#FF8C00" opacity="0.7"/>
+  <ellipse cx="520" cy="392" rx="8" ry="12" fill="#FFD700" opacity="0.2"/>
+  <!-- Flower petals around base -->
+  <circle cx="340" cy="435" r="5" fill="#FF6B35" opacity="0.5"/>
+  <circle cx="360" cy="445" r="4" fill="#FFD700" opacity="0.4"/>
+  <circle cx="440" cy="445" r="4" fill="#FFD700" opacity="0.4"/>
+  <circle cx="460" cy="435" r="5" fill="#FF6B35" opacity="0.5"/>
+  <!-- Om above shivling -->
+  <text x="400" y="210" font-size="36" text-anchor="middle" fill="#D4AF37" opacity="0.4" font-family="serif">ॐ</text>
+  <!-- Decorative rings -->
+  <circle cx="400" cy="380" r="170" fill="none" stroke="#D4AF37" stroke-width="0.6" opacity="0.08"/>
+  <!-- Text -->
+  <text x="400" y="490" font-size="22" text-anchor="middle" fill="#D4AF37" opacity="0.65" font-family="Georgia, serif" letter-spacing="2">Shivling Darshan</text>
+  <text x="400" y="525" font-size="15" text-anchor="middle" fill="#FF6B35" opacity="0.45" font-family="serif">Sacred light of Bholenath</text>
+</svg>

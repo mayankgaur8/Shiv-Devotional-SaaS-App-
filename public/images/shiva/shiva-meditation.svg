@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" width="800" height="600">
+  <defs>
+    <radialGradient id="bg2" cx="50%" cy="50%" r="70%">
+      <stop offset="0%" stop-color="#0C1A26"/>
+      <stop offset="60%" stop-color="#060D13"/>
+      <stop offset="100%" stop-color="#080C14"/>
+    </radialGradient>
+    <radialGradient id="aura" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#1E3A5F" stop-opacity="0.4"/>
+      <stop offset="70%" stop-color="#7E96F0" stop-opacity="0.05"/>
+      <stop offset="100%" stop-color="#1E3A5F" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="crown" cx="50%" cy="20%" r="30%">
+      <stop offset="0%" stop-color="#D4AF37" stop-opacity="0.3"/>
+      <stop offset="100%" stop-color="#D4AF37" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="800" height="600" fill="url(#bg2)"/>
+  <!-- Aura / meditation light -->
+  <ellipse cx="400" cy="310" rx="200" ry="240" fill="url(#aura)"/>
+  <ellipse cx="400" cy="200" rx="120" ry="120" fill="url(#crown)"/>
+  <!-- Meditation figure (stylized silhouette) -->
+  <!-- Head -->
+  <ellipse cx="400" cy="190" rx="38" ry="45" fill="#1E3A5F" opacity="0.5"/>
+  <!-- Body / torso in lotus -->
+  <ellipse cx="400" cy="310" rx="80" ry="70" fill="#1E3A5F" opacity="0.4"/>
+  <!-- Lotus legs -->
+  <ellipse cx="330" cy="360" rx="55" ry="28" fill="#1E3A5F" opacity="0.35" transform="rotate(-15, 330, 360)"/>
+  <ellipse cx="470" cy="360" rx="55" ry="28" fill="#1E3A5F" opacity="0.35" transform="rotate(15, 470, 360)"/>
+  <!-- Arms in dhyan mudra -->
+  <ellipse cx="340" cy="330" rx="45" ry="18" fill="#1E3A5F" opacity="0.35" transform="rotate(20, 340, 330)"/>
+  <ellipse cx="460" cy="330" rx="45" ry="18" fill="#1E3A5F" opacity="0.35" transform="rotate(-20, 460, 330)"/>
+  <!-- Third eye glow -->
+  <ellipse cx="400" cy="183" rx="6" ry="4" fill="#FF6B35" opacity="0.6"/>
+  <ellipse cx="400" cy="183" rx="12" ry="8" fill="#FF6B35" opacity="0.15"/>
+  <!-- Om above head -->
+  <text x="400" y="140" font-size="28" text-anchor="middle" fill="#D4AF37" opacity="0.45" font-family="serif">ॐ</text>
+  <!-- Concentric meditation rings -->
+  <circle cx="400" cy="300" r="150" fill="none" stroke="#5373EB" stroke-width="0.8" opacity="0.12"/>
+  <circle cx="400" cy="300" r="190" fill="none" stroke="#5373EB" stroke-width="0.5" opacity="0.08"/>
+  <circle cx="400" cy="300" r="230" fill="none" stroke="#D4AF37" stroke-width="0.5" opacity="0.06"/>
+  <!-- Stars / particles -->
+  <circle cx="200" cy="150" r="1.5" fill="#D4AF37" opacity="0.4"/>
+  <circle cx="600" cy="120" r="1.5" fill="#D4AF37" opacity="0.4"/>
+  <circle cx="150" cy="300" r="1" fill="#7E96F0" opacity="0.3"/>
+  <circle cx="650" cy="280" r="1" fill="#7E96F0" opacity="0.3"/>
+  <circle cx="250" cy="450" r="1.5" fill="#FF6B35" opacity="0.2"/>
+  <circle cx="560" cy="440" r="1.5" fill="#FF6B35" opacity="0.2"/>
+  <!-- Text -->
+  <text x="400" y="490" font-size="22" text-anchor="middle" fill="#7E96F0" opacity="0.6" font-family="Georgia, serif" letter-spacing="2">Shiv Dhyan</text>
+  <text x="400" y="525" font-size="16" text-anchor="middle" fill="#5373EB" opacity="0.45" font-family="serif">Bholenath in eternal meditation</text>
+</svg>

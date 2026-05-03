@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" width="800" height="600">
+  <defs>
+    <radialGradient id="bg1" cx="50%" cy="40%" r="70%">
+      <stop offset="0%" stop-color="#3a1200"/>
+      <stop offset="55%" stop-color="#1a0800"/>
+      <stop offset="100%" stop-color="#080C14"/>
+    </radialGradient>
+    <radialGradient id="glow1" cx="50%" cy="45%" r="45%">
+      <stop offset="0%" stop-color="#FF6B35" stop-opacity="0.25"/>
+      <stop offset="100%" stop-color="#FF6B35" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="goldGlow" cx="50%" cy="30%" r="35%">
+      <stop offset="0%" stop-color="#D4AF37" stop-opacity="0.2"/>
+      <stop offset="100%" stop-color="#D4AF37" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="800" height="600" fill="url(#bg1)"/>
+  <circle cx="400" cy="250" r="280" fill="url(#glow1)"/>
+  <circle cx="400" cy="180" r="180" fill="url(#goldGlow)"/>
+  <!-- Moon crescent -->
+  <path d="M385 70 Q415 90 405 130 Q375 105 385 70" fill="#D4AF37" opacity="0.5"/>
+  <!-- Trishul shaft -->
+  <rect x="398" y="120" width="4" height="260" fill="#D4AF37" opacity="0.35" rx="2"/>
+  <!-- Trishul prongs -->
+  <path d="M400 120 L390 150 L400 165 L410 150 Z" fill="#D4AF37" opacity="0.45"/>
+  <path d="M388 125 L380 155 L388 168" fill="none" stroke="#D4AF37" stroke-width="2.5" opacity="0.35" stroke-linecap="round"/>
+  <path d="M412 125 L420 155 L412 168" fill="none" stroke="#D4AF37" stroke-width="2.5" opacity="0.35" stroke-linecap="round"/>
+  <!-- Om symbol -->
+  <text x="400" y="380" font-size="160" text-anchor="middle" fill="#D4AF37" opacity="0.08" font-family="serif">ॐ</text>
+  <!-- Decorative arcs -->
+  <circle cx="400" cy="300" r="200" fill="none" stroke="#FF6B35" stroke-width="1" opacity="0.08"/>
+  <circle cx="400" cy="300" r="240" fill="none" stroke="#D4AF37" stroke-width="0.5" opacity="0.06"/>
+  <!-- Text -->
+  <text x="400" y="490" font-size="28" text-anchor="middle" fill="#D4AF37" opacity="0.7" font-family="Georgia, serif" letter-spacing="3">Har Har Mahadev</text>
+  <text x="400" y="530" font-size="20" text-anchor="middle" fill="#FF6B35" opacity="0.55" font-family="serif">ॐ नमः शिवाय</text>
+</svg>

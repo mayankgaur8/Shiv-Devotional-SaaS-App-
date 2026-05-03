@@ -105,6 +105,7 @@ export default function BhajanClientPage() {
   const [isOffline, setIsOffline] = useState(false)
   const [resumePosition, setResumePosition] = useState<ResumePosition | null>(null)
   const [playerErrorMessage, setPlayerErrorMessage] = useState<string | null>(null)
+  const [playerVisible, setPlayerVisible] = useState(true)
 
   const mediaItems = useMemo(() => (Array.isArray(devotionalMedia) ? devotionalMedia : []), [])
 
@@ -234,6 +235,7 @@ export default function BhajanClientPage() {
     }
 
     setCurrentTrackId(trackId)
+    setPlayerVisible(true)
     setCurrentTime(options?.startAt || 0)
     setIsTrackLoading(true)
     setIsBuffering(false)
@@ -855,8 +857,23 @@ export default function BhajanClientPage() {
         <p>Max simultaneous media loads target: {mediaSourceConfig.maxSimultaneousLoads}.</p>
       </section>
 
-      {currentTrack && (
-        <section className="fixed bottom-3 left-3 right-3 z-50 rounded-2xl border border-saffron-500/30 bg-neelkanth-900/95 backdrop-blur-md p-3 shadow-2xl">
+      {currentTrack && playerVisible && (
+        <section className="fixed bottom-3 left-3 right-3 z-50 rounded-2xl border border-saffron-500/30 bg-neelkanth-900/95 backdrop-blur-md p-3 shadow-2xl relative">
+          <button
+            type="button"
+            onClick={() => {
+              if (audioRef.current) {
+                audioRef.current.pause()
+              }
+              setIsPlaying(false)
+              setPlayerVisible(false)
+            }}
+            title="Close player"
+            aria-label="Close audio player"
+            className="absolute -top-2.5 -right-2.5 w-6 h-6 rounded-full bg-neelkanth-800 border border-saffron-500/40 flex items-center justify-center text-bhasma-400 hover:text-white hover:border-saffron-400 transition-all focus:outline-none focus:ring-2 focus:ring-saffron-400/60 text-xs z-10 shadow-md"
+          >
+            ✕
+          </button>
           <div className="flex flex-col md:flex-row md:items-center gap-3">
             <div className="min-w-0 md:w-1/3">
               <p className="text-bhasma-100 text-sm font-semibold truncate">{currentTrack.title}</p>
