@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { clsx } from 'clsx'
@@ -15,12 +16,17 @@ const navLinks = [
 
 export default function Navbar() {
   const pathname = usePathname()
+  const [mobileOpen, setMobileOpen] = useState(false)
+
+  const handleNavClick = () => {
+    setMobileOpen(false)
+  }
 
   return (
-    <nav className="nav-glass fixed top-0 left-0 right-0 z-50 h-16">
-      <div className="max-w-7xl mx-auto px-4 h-full flex items-center justify-between">
+    <nav className="nav-glass fixed top-0 left-0 right-0 z-50">
+      <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
         {/* Logo */}
-        <Link href="/" className="flex items-center gap-2 group">
+        <Link href="/" className="flex items-center gap-2 group" onClick={handleNavClick}>
           <span className="text-2xl animate-om-spin">🕉️</span>
           <div>
             <span className="text-lg font-bold gold-shimmer">ShivMandir</span>
@@ -56,17 +62,40 @@ export default function Navbar() {
         </div>
 
         {/* Mobile Nav */}
-        <div className="md:hidden flex items-center gap-3">
+        <div className="md:hidden flex items-center">
+          <button
+            type="button"
+            onClick={() => setMobileOpen(prev => !prev)}
+            className="rounded-lg border border-white/15 px-3 py-2 text-sm text-bhasma-300 hover:bg-white/10"
+            aria-expanded={mobileOpen}
+            aria-label="Toggle navigation menu"
+          >
+            Menu
+          </button>
+        </div>
+      </div>
+
+      <div
+        className={clsx(
+          'md:hidden overflow-hidden transition-[max-height] duration-300 border-t border-white/10',
+          mobileOpen ? 'max-h-[75vh]' : 'max-h-0 border-t-0'
+        )}
+      >
+        <div className="px-4 py-3 space-y-2 bg-[#080C14]/95">
           {navLinks.map((link) => (
             <Link
               key={link.href}
               href={link.href}
+              onClick={handleNavClick}
               className={clsx(
-                'text-lg transition-all',
-                pathname === link.href ? 'opacity-100 scale-110' : 'opacity-50'
+                'flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-all',
+                pathname === link.href
+                  ? 'bg-saffron-500/20 text-saffron-300 border border-saffron-500/40'
+                  : 'text-bhasma-300 hover:bg-white/10'
               )}
             >
-              {link.icon}
+              <span>{link.icon}</span>
+              <span>{link.label}</span>
             </Link>
           ))}
         </div>
