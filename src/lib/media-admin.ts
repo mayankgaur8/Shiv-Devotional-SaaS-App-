@@ -1,3 +1,4 @@
+import 'server-only'
 import type { DevotionalMediaItem } from '@/src/data/devotionalMedia'
 
 export const MEDIA_SCHEMA_VERSION = '1.0.0'

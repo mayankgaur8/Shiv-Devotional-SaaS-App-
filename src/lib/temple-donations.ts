@@ -1,3 +1,4 @@
+import 'server-only'
 import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
