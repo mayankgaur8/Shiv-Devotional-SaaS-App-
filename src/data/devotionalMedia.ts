@@ -217,6 +217,26 @@ export const devotionalMedia: DevotionalMediaItem[] = [
     popularity: 90,
     allowDownload: false,
   },
+  {
+    id: 'shiv-devotional-live-video',
+    slug: 'shiv-devotional-live-video',
+    title: 'Shiv Devotional Live',
+    artist: 'YouTube Devotional',
+    type: 'video',
+    category: 'Bhajan',
+    src: '/media/video/shiv-devotional-live.mp4',
+    thumbnail: defaultThumb,
+    duration: '08:00',
+    description: 'Featured Shiva devotional video added from the requested YouTube source.',
+    lyricsHindi: 'हर हर महादेव।',
+    transliteration: 'Har Har Mahadev',
+    meaning: 'Glory to Mahadev, the great Lord Shiva.',
+    tags: ['Video', 'Bhajan', 'Featured'],
+    youtubeId: 'md6xg5i63V4',
+    releaseDate: '2026-05-03',
+    popularity: 87,
+    allowDownload: false,
+  },
 ]
 
 export const devotionalPlaylists: DevotionalPlaylist[] = [
