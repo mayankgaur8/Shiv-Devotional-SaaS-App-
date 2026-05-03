@@ -37,7 +37,7 @@ jobs:
       - name: Test
         run: npm test
         env:
-          NODE_ENV: production
+          NODE_ENV: test
           RAZORPAY_KEY_ID: dummy
           RAZORPAY_KEY_SECRET: dummy
           NEXT_PUBLIC_RAZORPAY_KEY: dummy
@@ -55,13 +55,20 @@ jobs:
       - name: Package standalone output
         run: |
           rm -rf release
-          mkdir -p release
-          cp -R .next/standalone/. release/
           mkdir -p release/.next
-          cp -R .next/static release/.next/static
-          cp -R public release/public
-          cp package.json release/package.json
-          test -f release/server.js
+
+          # Keep the full standalone tree so the Azure startup command
+          # "node .next/standalone/server.js" resolves correctly.
+          cp -R .next/standalone release/.next/standalone
+
+          # standalone/server.js uses __dirname as its app root, so static
+          # assets must live at .next/standalone/.next/static and public
+          # files at .next/standalone/public.
+          cp -R .next/static release/.next/standalone/.next/static
+          cp -R public       release/.next/standalone/public
+
+          # Fail fast if the entry point is missing.
+          test -f release/.next/standalone/server.js
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
