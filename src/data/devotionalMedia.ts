@@ -9,6 +9,8 @@ export interface DevotionalMediaItem {
   artist: string
   type: MediaType
   category: MediaCategory
+  playlist?: string
+  featured?: boolean
   src: string
   cdnSrc?: string
   thumbnail: string
@@ -122,13 +124,15 @@ export const devotionalMedia: DevotionalMediaItem[] = [
     allowDownload: false,
   },
   {
-    id: 'shiv-aarti',
+    id: 'om-jai-shiv-omkara-aarti',
     slug: 'om-jai-shiv-omkara-aarti',
     title: 'Om Jai Shiv Omkara - Aarti',
     artist: 'Temple Collective',
     type: 'audio',
     category: 'Aarti',
-    src: '/media/audio/shiv-aarti.mp3',
+    playlist: 'Evening Aarti',
+    featured: true,
+    src: '/audio/om-jai-shiv-omkara-aarti.mp3',
     cdnSrc: process.env.NEXT_PUBLIC_SHIV_AARTI_CDN,
     thumbnail: defaultThumb,
     duration: '05:30',
@@ -136,7 +140,7 @@ export const devotionalMedia: DevotionalMediaItem[] = [
     lyricsHindi: 'ॐ जय शिव ओंकारा, स्वामी जय शिव ओंकारा।',
     transliteration: 'Om Jai Shiv Omkara, Swami Jai Shiv Omkara',
     meaning: 'A devotional hymn praising Shiva in many divine forms.',
-    tags: ['Temple', 'Evening', 'Aarti'],
+    tags: ['shiv', 'aarti', 'omkara', 'mahadev'],
     releaseDate: '2024-12-20',
     popularity: 95,
     allowDownload: false,
@@ -300,7 +304,7 @@ export const devotionalPlaylists: DevotionalPlaylist[] = [
     title: 'Evening Aarti',
     description: 'Sunset devotional flow for daily puja.',
     icon: '🪔',
-    trackIds: ['shiv-aarti', 'shiv-aarti-video'],
+    trackIds: ['om-jai-shiv-omkara-aarti', 'shiv-aarti-video'],
   },
   {
     id: 'meditation-om-chanting',

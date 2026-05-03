@@ -13,7 +13,7 @@ import {
 } from '@/src/data/devotionalMedia'
 import { trackEvent } from '@/src/lib/analytics'
 import { filterAndSortMedia, isMissingMedia, nextPlayState, toRecentlyPlayed, toggleFavoriteId } from '@/src/lib/bhajan-utils'
-import { safeStorageGet, safeStorageSet } from '@/src/lib/safe-storage'
+import { safeStorageParse, safeStorageSet } from '@/src/lib/safe-storage'
 import { sanitizeText } from '@/src/lib/sanitize'
 import type { DevotionalMediaItem, SortOption } from '@/src/data/devotionalMedia'
 import VideoMediaCard from '@/components/bhajan/VideoMediaCard'
@@ -72,6 +72,21 @@ function pushGlobalMediaError(payload: Record<string, unknown>): void {
   holder.__MEDIA_ERRORS__.push({ ...payload, timestamp: Date.now() })
 }
 
+function isStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((item) => typeof item === 'string')
+}
+
+function isResumePosition(value: unknown): value is ResumePosition {
+  return Boolean(
+    value
+    && typeof value === 'object'
+    && 'trackId' in value
+    && 'time' in value
+    && typeof (value as ResumePosition).trackId === 'string'
+    && typeof (value as ResumePosition).time === 'number',
+  )
+}
+
 export default function BhajanClientPage() {
   const pathname = usePathname()
   const audioRef = useRef<HTMLAudioElement>(null)
@@ -111,16 +126,17 @@ export default function BhajanClientPage() {
 
   useEffect(() => {
     try {
-      const storedFav = safeStorageGet('shiv-favorites')
-      const storedRecent = safeStorageGet('shiv-recently-played')
-      const storedResume = safeStorageGet('shiv-last-track-position')
-      if (storedFav) setFavorites(JSON.parse(storedFav))
-      if (storedRecent) setRecentlyPlayed(JSON.parse(storedRecent))
-      if (storedResume) {
-        const parsed = JSON.parse(storedResume) as ResumePosition
-        if (parsed?.trackId && typeof parsed.time === 'number') {
-          setResumePosition(parsed)
-        }
+      setFavorites(safeStorageParse('shiv-favorites', [], isStringArray))
+      setRecentlyPlayed(safeStorageParse('shiv-recently-played', [], isStringArray))
+
+      const parsedResume = safeStorageParse<ResumePosition | null>(
+        'shiv-last-track-position',
+        null,
+        (value): value is ResumePosition | null => value === null || isResumePosition(value),
+      )
+
+      if (parsedResume?.trackId) {
+        setResumePosition(parsedResume)
       }
     } catch {
       setStorageAvailable(false)
@@ -465,9 +481,15 @@ export default function BhajanClientPage() {
           }
         }}
         onEnded={handleEnded}
-        onError={() => {
+        onError={(event) => {
           if (currentTrackId) {
             const retries = retryCountRef.current.get(currentTrackId) || 0
+            const failedSrc = (event.currentTarget as HTMLAudioElement).currentSrc || currentTrack?.src || ''
+            console.error('[bhajan:audio-player-error]', {
+              id: currentTrackId,
+              failedSrc,
+              retry: retries,
+            })
             if (currentTrack) {
               const candidateUrls = getMediaCandidateUrls(currentTrack.src, currentTrack.cdnSrc)
               const nextCandidate = candidateUrls[retries + 1]
@@ -487,7 +509,7 @@ export default function BhajanClientPage() {
               }
             }
 
-            setPlayerErrorMessage(`Unable to load ${sanitizeText(currentTrack?.title || 'this track')}. Check that the local file is present.`)
+            setPlayerErrorMessage(`Unable to load ${sanitizeText(currentTrack?.title || 'this track')}. The file may be missing at ${sanitizeText(currentTrack?.src || failedSrc || '/audio')}.`)
             handleMediaError(currentTrackId, 'audio-retries-exhausted')
           }
           setIsPlaying(false)
@@ -757,14 +779,13 @@ export default function BhajanClientPage() {
                           controls
                           preload="metadata"
                           className="w-full"
-                          onError={() => {
-                            console.error('[bhajan:audio-card-error]', { id: item.id, src: item.src })
+                          onError={(event) => {
+                            const failedSrc = (event.currentTarget as HTMLAudioElement).currentSrc || item.src
+                            console.error('[bhajan:audio-card-error]', { id: item.id, src: failedSrc })
                             handleMediaError(item.id, 'audio-card-load-failed')
                           }}
                         >
-                          {getMediaCandidateUrls(item.src, item.cdnSrc).map((src) => (
-                            <source key={src} src={src} type="audio/mpeg" />
-                          ))}
+                          <source src={item.src} type="audio/mpeg" />
                           Your browser does not support audio.
                         </audio>
 
