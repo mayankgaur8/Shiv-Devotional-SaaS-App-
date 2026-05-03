@@ -16,8 +16,21 @@ export default function PwaEnhancer() {
       const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
 
       if (isLocalhost) {
+        const refreshKey = 'shivmandir-dev-sw-refresh'
+
         navigator.serviceWorker.getRegistrations()
           .then((registrations) => Promise.all(registrations.map((reg) => reg.unregister())))
+          .then(async () => {
+            if ('caches' in window) {
+              const keys = await caches.keys()
+              await Promise.all(keys.map((key) => caches.delete(key)))
+            }
+
+            if (!sessionStorage.getItem(refreshKey)) {
+              sessionStorage.setItem(refreshKey, '1')
+              window.location.reload()
+            }
+          })
           .catch(() => {
             // Ignore cleanup failures in dev.
           })

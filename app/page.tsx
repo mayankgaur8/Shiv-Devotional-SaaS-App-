@@ -7,12 +7,14 @@ import type { DailyGuidance } from '@/lib/mantras'
 
 export default function Dashboard() {
   const [guidance, setGuidance] = useState<DailyGuidance | null>(null)
+  const [today, setToday] = useState('')
   const [currentTime, setCurrentTime] = useState('')
   const [shared, setShared] = useState(false)
   const [offeringDone, setOfferingDone] = useState(false)
 
   useEffect(() => {
     setGuidance(getTodaysGuidance())
+    setToday(new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' }))
     const tick = () => {
       const now = new Date()
       setCurrentTime(now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }))
@@ -21,8 +23,6 @@ export default function Dashboard() {
     const interval = setInterval(tick, 1000)
     return () => clearInterval(interval)
   }, [])
-
-  const today = new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })
 
   const featureCards = [
     {

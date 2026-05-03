@@ -22,7 +22,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className="dark">
-      <body className={`${inter.variable} font-sans sacred-bg min-h-screen`}>
+      <body className={`${inter.variable} font-sans sacred-bg min-h-screen bg-black text-white antialiased`}>
         <script
           dangerouslySetInnerHTML={{
             __html: `(function () {
@@ -30,6 +30,8 @@ export default function RootLayout({
     var host = window.location.hostname;
     var isLocal = host === 'localhost' || host === '127.0.0.1';
     if (!isLocal) return;
+
+    var reloadKey = 'shivmandir-dev-cache-cleaned';
 
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.getRegistrations().then(function (regs) {
@@ -42,6 +44,12 @@ export default function RootLayout({
         keys.forEach(function (key) { caches.delete(key); });
       });
     }
+
+    // Force one reload after cleanup to invalidate stale HTML/CSS references.
+    if (!sessionStorage.getItem(reloadKey)) {
+      sessionStorage.setItem(reloadKey, '1');
+      window.location.reload();
+    }
   } catch (e) {
     console.warn('Local cache cleanup skipped', e);
   }
@@ -50,7 +58,7 @@ export default function RootLayout({
         />
         <Navbar />
         <PwaEnhancer />
-        <main className="pt-16">
+        <main className="min-h-screen px-4 pt-20 md:px-8">
           {children}
         </main>
       </body>
