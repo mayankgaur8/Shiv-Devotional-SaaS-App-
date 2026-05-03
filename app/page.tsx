@@ -65,6 +65,16 @@ export default function Dashboard() {
       badge: 'B2B',
       badgeColor: 'bg-purple-500/20 text-purple-300',
     },
+    {
+      href: '/bhajan',
+      icon: '🎵',
+      title: 'Bhajan & Kirtan',
+      subtitle: 'Sacred mantras & bhajans',
+      gradient: 'from-yellow-600/20 to-gold-800/20',
+      border: 'border-gold-500/30',
+      badge: '🎶 New',
+      badgeColor: 'bg-gold-500/20 text-yellow-300',
+    },
   ]
 
   return (
@@ -203,6 +213,24 @@ export default function Dashboard() {
             <div className="absolute bottom-4 right-4 text-bhasma-600 group-hover:text-saffron-400 transition-colors text-lg">→</div>
           </Link>
         ))}
+      </div>
+
+      {/* Bhajan / Listen Section */}
+      <div className="rounded-2xl p-6 mb-8 flex flex-col md:flex-row items-center gap-5"
+        style={{ background: 'linear-gradient(135deg, rgba(212,175,55,0.08) 0%, rgba(8,12,20,1) 60%, rgba(212,175,55,0.05) 100%)', border: '1px solid rgba(212,175,55,0.2)' }}>
+        <div className="flex-1 text-center md:text-left">
+          <p className="text-xs uppercase tracking-widest text-gold-500 font-semibold mb-1">Divine Sounds</p>
+          <h2 className="text-xl font-bold text-bhasma-100 mb-2">Listen to Divine Shiva Mantras</h2>
+          <p className="text-bhasma-500 text-sm leading-relaxed">
+            Om Namah Shivaya, Maha Mrityunjaya, Shiv Tandav, Aarti — all in one place.
+          </p>
+        </div>
+        <Link
+          href="/bhajan"
+          className="flex-shrink-0 px-6 py-3 rounded-xl text-sm font-semibold bg-gradient-to-r from-gold-500 to-saffron-500 text-white hover:opacity-90 transition-opacity shadow-lg"
+        >
+          🎵 Open Bhajan Library
+        </Link>
       </div>
 
       {/* Pricing Strip */}

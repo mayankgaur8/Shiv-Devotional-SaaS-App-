@@ -1,8 +1,12 @@
 /** @type {import('next').NextConfig} */
+const isGitHubPages = process.env.GITHUB_ACTIONS === 'true'
+
 const nextConfig = {
-  output: 'export',
-  basePath: '/Shiv-Devotional-SaaS-App-',
-  trailingSlash: true,
+  ...(isGitHubPages && {
+    output: 'export',
+    basePath: '/Shiv-Devotional-SaaS-App-',
+    trailingSlash: true,
+  }),
   images: {
     unoptimized: true,
   },

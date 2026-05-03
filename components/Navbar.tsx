@@ -9,6 +9,7 @@ const navLinks = [
   { href: '/companion', label: 'AI Sahayak', icon: '🤖' },
   { href: '/rudraksha', label: 'Rudraksha', icon: '📿' },
   { href: '/shravan', label: 'Shravan', icon: '🌧️' },
+  { href: '/bhajan', label: 'Bhajan / Songs', icon: '🎵' },
   { href: '/temple', label: 'Temple', icon: '🛕' },
 ]
 

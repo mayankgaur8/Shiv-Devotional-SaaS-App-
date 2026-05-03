@@ -54,7 +54,7 @@ export default function RudrakshaPage() {
           <span className="gold-shimmer">Rudraksha Advisor</span>
         </h1>
         <p className="text-bhasma-500 text-sm max-w-md mx-auto">
-          Discover your sacred bead based on your life situation, goals, and Shiva's guidance.
+          Discover your sacred bead based on your life situation, goals, and Shiva&apos;s guidance.
         </p>
       </div>
 
@@ -81,7 +81,7 @@ export default function RudrakshaPage() {
             style={{ background: 'linear-gradient(135deg, rgba(212,175,55,0.08), rgba(8,12,20,1), rgba(255,107,53,0.05))' }}>
             <h2 className="text-xl font-bold text-bhasma-100 mb-4">Aapka Rudraksha Khojein</h2>
             <p className="text-bhasma-400 text-sm mb-6 leading-relaxed max-w-md mx-auto">
-              Rudraksha — Shiva's tears — are living beads carrying specific divine frequencies.
+              Rudraksha — Shiva&apos;s tears — are living beads carrying specific divine frequencies.
               Each mukhi (face) connects to a deity, planet, and life force.
               This 3-step quiz helps you find your perfect match.
             </p>
@@ -157,7 +157,7 @@ export default function RudrakshaPage() {
       {step === 'goal' && (
         <div>
           <h2 className="text-xl font-bold text-bhasma-100 mb-2 text-center">Aapka Sabse Bada Sapna Kya Hai?</h2>
-          <p className="text-bhasma-500 text-sm text-center mb-6">Your deepest aspiration guides Shiva's recommendation for you.</p>
+          <p className="text-bhasma-500 text-sm text-center mb-6">Your deepest aspiration guides Shiva&apos;s recommendation for you.</p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {goals.map((g) => (
               <button
