@@ -22,7 +22,8 @@ const categoryBadge: Record<string, string> = {
 let activeVideoLoads = 0
 
 export default function VideoMediaCard({ item, onError }: VideoMediaCardProps) {
-  const [useYoutube, setUseYoutube] = useState(false)
+  // .mov is not browser-supported; auto-use YouTube embed when available
+  const [useYoutube, setUseYoutube] = useState(() => !!(item.src.endsWith('.mov') && item.youtubeId))
   const [videoFailed, setVideoFailed] = useState(false)
   const [thumbFailed, setThumbFailed] = useState(false)
   const [isLoadingVideo, setIsLoadingVideo] = useState(true)
