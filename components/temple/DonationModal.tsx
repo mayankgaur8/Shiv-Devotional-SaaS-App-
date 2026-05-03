@@ -14,13 +14,14 @@ interface DonationModalProps {
 }
 
 interface CreateOrderResponse {
-  ok: boolean
+  success: boolean
   error?: string
-  paymentMode?: 'razorpay' | 'mock'
-  transactionId?: string
+  donationId?: string
   orderId?: string
-  keyId?: string
-  message?: string
+  amount?: number
+  currency?: 'INR'
+  key?: string
+  duplicate?: boolean
 }
 
 type RazorpayHandlerResponse = {
@@ -56,6 +57,30 @@ type RazorpayInstance = {
 
 type RazorpayConstructor = new (options: RazorpayOptions) => RazorpayInstance
 
+interface ToastMessage {
+  id: string
+  type: 'success' | 'error' | 'info'
+  text: string
+}
+
+async function requestWithRetry(input: RequestInfo | URL, init: RequestInit, retries = 2): Promise<Response> {
+  let attempt = 0
+  let lastError: unknown = null
+
+  while (attempt <= retries) {
+    try {
+      return await fetch(input, init)
+    } catch (error) {
+      lastError = error
+      attempt += 1
+      if (attempt > retries) break
+      await new Promise(resolve => setTimeout(resolve, 250 * attempt))
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new Error('Network request failed.')
+}
+
 function loadRazorpayScript(): Promise<boolean> {
   if (typeof window === 'undefined') {
     return Promise.resolve(false)
@@ -90,6 +115,15 @@ export default function DonationModal({
   const [status, setStatus] = useState<PaymentState>('idle')
   const [feedback, setFeedback] = useState<string>('')
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [toasts, setToasts] = useState<ToastMessage[]>([])
+
+  const pushToast = (type: ToastMessage['type'], text: string) => {
+    const id = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+    setToasts(prev => [...prev, { id, type, text }])
+    window.setTimeout(() => {
+      setToasts(prev => prev.filter(item => item.id !== id))
+    }, 2800)
+  }
 
   useEffect(() => {
     if (!isOpen) {
@@ -101,6 +135,7 @@ export default function DonationModal({
     setCustomAmount('')
     setStatus('idle')
     setFeedback('')
+    setToasts([])
   }, [isOpen, initialAmount, initialPurpose])
 
   const amount = useMemo(() => {
@@ -129,42 +164,24 @@ export default function DonationModal({
   }
 
   const updateRemoteStatus = async (
-    transactionId: string,
-    nextStatus: 'failed' | 'cancelled',
+    donationId: string,
+    nextStatus: 'failed' | 'cancelled' | 'abandoned',
     reason?: string
   ) => {
-    await fetch('/api/temple/donations/update-status', {
+    await requestWithRetry('/api/payment/update-status', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ transactionId, status: nextStatus, reason }),
+      body: JSON.stringify({ donationId, status: nextStatus, reason }),
     })
-  }
-
-  const processMockPayment = async (transactionId: string) => {
-    await new Promise(resolve => setTimeout(resolve, 1200))
-    const response = await fetch('/api/temple/donations/verify', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        transactionId,
-        mode: 'mock',
-      }),
-    })
-
-    const result = await response.json()
-
-    if (!response.ok || !result.ok) {
-      throw new Error(result.error || 'Mock payment verification failed.')
-    }
-
-    setStatus('success')
-    setFeedback('Thank you for your donation. Har Har Mahadev.')
-    onDonationComplete()
   }
 
   const openRazorpayCheckout = async (
-    data: Required<Pick<CreateOrderResponse, 'transactionId' | 'orderId' | 'keyId'>>
+    data: Required<Pick<CreateOrderResponse, 'donationId' | 'orderId' | 'key' | 'amount' | 'currency'>>
   ) => {
+    if (typeof window === 'undefined') {
+      throw new Error('Payment checkout is only available in browser context.')
+    }
+
     const hasScript = await loadRazorpayScript()
 
     const Razorpay = (window as Window & { Razorpay?: RazorpayConstructor }).Razorpay
@@ -174,10 +191,10 @@ export default function DonationModal({
     }
 
     const options: RazorpayOptions = {
-      key: data.keyId,
-      amount: amount * 100,
-      currency: 'INR',
-      name: 'Shiv Mandir Donation',
+      key: data.key,
+      amount: data.amount,
+      currency: data.currency,
+      name: 'Shiv Mandir',
       description: purpose,
       order_id: data.orderId,
       prefill: {
@@ -186,39 +203,41 @@ export default function DonationModal({
       },
       handler: async (response: RazorpayHandlerResponse) => {
         try {
-          const verifyResponse = await fetch('/api/temple/donations/verify', {
+          const verifyResponse = await requestWithRetry('/api/payment/verify', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              transactionId: data.transactionId,
-              orderId: response.razorpay_order_id,
-              paymentId: response.razorpay_payment_id,
-              signature: response.razorpay_signature,
-              mode: 'razorpay',
+              donationId: data.donationId,
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
             }),
           })
 
           const verifyResult = await verifyResponse.json()
 
-          if (!verifyResponse.ok || !verifyResult.ok) {
+          if (!verifyResponse.ok || !verifyResult.success) {
             throw new Error(verifyResult.error || 'Payment verification failed.')
           }
 
           setStatus('success')
-          setFeedback('Thank you for your donation. Har Har Mahadev.')
+          setFeedback(`🙏 Thank you for your donation of Rs ${amount}. Receipt ref: ${response.razorpay_payment_id}`)
+          pushToast('success', 'Donation received successfully.')
           onDonationComplete()
         } catch (error) {
           setStatus('failed')
           setFeedback(error instanceof Error ? error.message : 'Payment verification failed.')
+          pushToast('error', 'Verification failed. Please retry.')
         } finally {
           setIsSubmitting(false)
         }
       },
       modal: {
         ondismiss: () => {
-          void updateRemoteStatus(data.transactionId, 'cancelled', 'Checkout closed by user')
-          setStatus('cancelled')
-          setFeedback('Payment was cancelled. You can retry anytime.')
+          void updateRemoteStatus(data.donationId, 'abandoned', 'Checkout closed by user')
+          setStatus('abandoned')
+          setFeedback('Payment popup was closed. You can retry anytime.')
+          pushToast('info', 'Payment was not completed.')
           setIsSubmitting(false)
         },
       },
@@ -229,9 +248,10 @@ export default function DonationModal({
 
     const checkout = new Razorpay(options)
     checkout.on('payment.failed', (response) => {
-      void updateRemoteStatus(data.transactionId, 'failed', response.error?.description)
+      void updateRemoteStatus(data.donationId, 'failed', response.error?.description)
       setStatus('failed')
       setFeedback(response.error?.description || 'Payment failed. Please retry.')
+      pushToast('error', 'Payment failed. Please retry.')
       setIsSubmitting(false)
     })
 
@@ -256,7 +276,7 @@ export default function DonationModal({
     setFeedback('Initializing secure payment...')
 
     try {
-      const response = await fetch('/api/temple/donations/create-order', {
+      const response = await requestWithRetry('/api/payment/create-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, contact, amount, purpose }),
@@ -264,28 +284,32 @@ export default function DonationModal({
 
       const result = (await response.json()) as CreateOrderResponse
 
-      if (!response.ok || !result.ok || !result.transactionId) {
+      if (!response.ok || !result.success || !result.donationId) {
+        if (!response.ok && result.error?.toLowerCase().includes('credentials')) {
+          throw new Error('Payment is temporarily unavailable: Razorpay keys are not configured on server.')
+        }
         throw new Error(result.error || 'Unable to initialize donation.')
       }
 
-      if (result.paymentMode === 'mock') {
-        await processMockPayment(result.transactionId)
-        setIsSubmitting(false)
-        return
-      }
-
-      if (!result.orderId || !result.keyId) {
+      if (!result.orderId || !result.key || !result.amount || !result.currency) {
         throw new Error('Payment gateway configuration incomplete on server.')
       }
 
       await openRazorpayCheckout({
-        transactionId: result.transactionId,
+        donationId: result.donationId,
         orderId: result.orderId,
-        keyId: result.keyId,
+        key: result.key,
+        amount: result.amount,
+        currency: result.currency,
       })
+
+      if (result.duplicate) {
+        pushToast('info', 'Duplicate attempt detected, reusing active order.')
+      }
     } catch (error) {
       setStatus('failed')
       setFeedback(error instanceof Error ? error.message : 'Donation could not be started.')
+      pushToast('error', 'Payment initialization failed.')
       setIsSubmitting(false)
     }
   }
@@ -296,6 +320,23 @@ export default function DonationModal({
 
   return (
     <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/60 p-3 sm:items-center sm:p-6" role="dialog" aria-modal="true" aria-label="Donation form">
+      <div className="pointer-events-none absolute right-4 top-4 z-[80] w-72 space-y-2">
+        {toasts.map((toast) => (
+          <div
+            key={toast.id}
+            className={`rounded-lg border px-3 py-2 text-xs shadow-lg ${
+              toast.type === 'success'
+                ? 'border-green-400/40 bg-green-500/20 text-green-100'
+                : toast.type === 'error'
+                  ? 'border-red-400/40 bg-red-500/20 text-red-100'
+                  : 'border-blue-400/40 bg-blue-500/20 text-blue-100'
+            }`}
+          >
+            {toast.text}
+          </div>
+        ))}
+      </div>
+
       <div className="w-full max-w-lg rounded-2xl border border-white/10 bg-[#0d1420] p-4 shadow-2xl sm:p-6">
         <div className="mb-4 flex items-start justify-between">
           <div>
@@ -393,7 +434,7 @@ export default function DonationModal({
               disabled={isSubmitting}
               className="rounded-xl bg-gradient-to-r from-saffron-500 to-saffron-600 px-4 py-2 text-sm font-semibold text-white transition hover:from-saffron-400 hover:to-saffron-500 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {isSubmitting ? 'Processing...' : `Donate Rs ${amount}`}
+              {isSubmitting ? 'Processing payment...' : `Donate Rs ${amount}`}
             </button>
           </div>
         </form>

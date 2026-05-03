@@ -1,5 +1,11 @@
 import { NextResponse } from 'next/server'
-import { updateDonationRecord, verifyRazorpaySignature } from '@/src/lib/temple-donations'
+import {
+  getDonationById,
+  getDonationByOrderId,
+  normalizeVerifyInput,
+  updateDonationRecord,
+  verifyRazorpaySignature,
+} from '@/src/lib/temple-donations'
 
 export const runtime = 'nodejs'
 
@@ -10,46 +16,32 @@ export async function POST(request: Request) {
       orderId?: string
       paymentId?: string
       signature?: string
-      mode: 'razorpay' | 'mock'
     }
 
-    if (!body.transactionId) {
+    if (!body.transactionId && !body.orderId) {
       return NextResponse.json({ ok: false, error: 'Missing transaction id.' }, { status: 400 })
     }
 
-    if (body.mode === 'mock') {
-      const record = await updateDonationRecord(body.transactionId, {
-        status: 'success',
-        gatewayPaymentId: body.paymentId || `mock_payment_${Date.now()}`,
-      })
+    const verified = normalizeVerifyInput({ orderId: body.orderId, paymentId: body.paymentId, signature: body.signature })
+    const donation = body.transactionId ? await getDonationById(body.transactionId) : await getDonationByOrderId(verified.orderId)
 
-      if (!record) {
-        return NextResponse.json({ ok: false, error: 'Transaction not found.' }, { status: 404 })
-      }
-
-      return NextResponse.json({ ok: true, donation: record })
-    }
-
-    if (!body.orderId || !body.paymentId || !body.signature) {
-      return NextResponse.json(
-        { ok: false, error: 'Missing required payment verification fields.' },
-        { status: 400 }
-      )
-    }
-
-    const isValid = verifyRazorpaySignature(body.orderId, body.paymentId, body.signature)
-
-    const record = await updateDonationRecord(body.transactionId, {
-      status: isValid ? 'success' : 'failed',
-      gatewayOrderId: body.orderId,
-      gatewayPaymentId: body.paymentId,
-      gatewaySignature: body.signature,
-      failureReason: isValid ? undefined : 'Invalid payment signature',
-    })
-
-    if (!record) {
+    if (!donation) {
       return NextResponse.json({ ok: false, error: 'Transaction not found.' }, { status: 404 })
     }
+
+    if (donation.status === 'success' && donation.gatewayPaymentId === verified.paymentId) {
+      return NextResponse.json({ ok: true, duplicate: true, donation })
+    }
+
+    const isValid = verifyRazorpaySignature(verified.orderId, verified.paymentId, verified.signature)
+
+    const record = await updateDonationRecord(donation.id, {
+      status: isValid ? 'success' : 'failed',
+      gatewayOrderId: verified.orderId,
+      gatewayPaymentId: verified.paymentId,
+      gatewaySignature: verified.signature,
+      failureReason: isValid ? undefined : 'Invalid payment signature',
+    })
 
     if (!isValid) {
       return NextResponse.json(

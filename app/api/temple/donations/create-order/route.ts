@@ -4,7 +4,7 @@ import {
   createDonationRecord,
   createRazorpayOrder,
   updateDonationRecord,
-  getRazorpayCredentials,
+  getRazorpayPublicKey,
 } from '@/src/lib/temple-donations'
 
 export const runtime = 'nodejs'
@@ -19,42 +19,26 @@ export async function POST(request: Request) {
     }
 
     const donation = await createDonationRecord(body)
-    const credentials = getRazorpayCredentials()
-
-    if (credentials) {
-      const order = await createRazorpayOrder(donation.amount, donation.id)
-
-      if (!order) {
-        throw new Error('Payment order creation failed.')
-      }
-
-      const updated = await updateDonationRecord(donation.id, {
-        status: 'processing',
-        gatewayOrderId: order.id,
-      })
-
-      return NextResponse.json({
-        ok: true,
-        paymentMode: 'razorpay',
-        transactionId: donation.id,
-        orderId: order.id,
-        keyId: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || credentials.keyId,
-        donation: updated,
-      })
-    }
+    const order = await createRazorpayOrder(donation.amount, donation.receiptId, {
+      name: donation.donorName,
+      contact: donation.contact,
+      purpose: donation.purpose,
+    })
 
     const updated = await updateDonationRecord(donation.id, {
       status: 'processing',
-      gatewayOrderId: `mock_order_${donation.id}`,
+      gatewayOrderId: order.id,
     })
 
     return NextResponse.json({
       ok: true,
-      paymentMode: 'mock',
+      paymentMode: 'razorpay',
       transactionId: donation.id,
-      orderId: updated?.gatewayOrderId,
+      orderId: order.id,
+      amount: order.amount,
+      currency: order.currency,
+      keyId: getRazorpayPublicKey(),
       donation: updated,
-      message: 'Razorpay keys not configured. Running in mock mode.',
     })
   } catch (error) {
     if (error instanceof DonationValidationError) {

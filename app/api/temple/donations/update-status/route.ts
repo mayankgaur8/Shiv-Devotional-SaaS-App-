@@ -7,7 +7,7 @@ export async function POST(request: Request) {
   try {
     const body = (await request.json()) as {
       transactionId: string
-      status: 'failed' | 'cancelled'
+      status: 'failed' | 'cancelled' | 'abandoned'
       reason?: string
     }
 

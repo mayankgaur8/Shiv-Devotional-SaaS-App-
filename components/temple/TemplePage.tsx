@@ -11,7 +11,7 @@ type DonationRow = {
   donorName: string
   amount: number
   purpose: string
-  status: 'created' | 'processing' | 'success' | 'failed' | 'cancelled'
+  status: 'created' | 'processing' | 'success' | 'failed' | 'cancelled' | 'abandoned'
   createdAt: string
 }
 
@@ -41,6 +41,7 @@ export default function TemplePage() {
   const [seedAmount, setSeedAmount] = useState(101)
   const [seedPurpose, setSeedPurpose] = useState('General Donation')
   const [recentDonations, setRecentDonations] = useState<DonationRow[]>([])
+  const [historyState, setHistoryState] = useState<'loading' | 'ready' | 'error'>('loading')
   const [bannerStatus, setBannerStatus] = useState<PaymentState>('idle')
 
   const successfulTotal = useMemo(() => {
@@ -50,10 +51,20 @@ export default function TemplePage() {
   }, [recentDonations])
 
   const refreshRecentDonations = async () => {
-    const response = await fetch('/api/temple/donations/status', { cache: 'no-store' })
-    const result = (await response.json()) as { ok: boolean; donations: DonationRow[] }
-    if (response.ok && result.ok) {
-      setRecentDonations(result.donations)
+    setHistoryState('loading')
+    try {
+      const response = await fetch('/api/payment/history', { cache: 'no-store' })
+      const result = (await response.json()) as { success: boolean; donations: DonationRow[] }
+      if (response.ok && result.success) {
+        setRecentDonations(Array.isArray(result.donations) ? result.donations : [])
+        setHistoryState('ready')
+        return
+      }
+      setRecentDonations([])
+      setHistoryState('error')
+    } catch {
+      setRecentDonations([])
+      setHistoryState('error')
     }
   }
 
@@ -118,9 +129,17 @@ export default function TemplePage() {
         </div>
 
         <div className="mt-4 space-y-2">
-          {recentDonations.length === 0 ? (
+          {historyState === 'loading' ? (
             <p className="rounded-lg border border-white/10 bg-black/20 p-3 text-sm text-bhasma-400">
-              No donations yet. Be the first to support the temple today.
+              Loading recent donations...
+            </p>
+          ) : historyState === 'error' ? (
+            <p className="rounded-lg border border-red-400/20 bg-red-500/10 p-3 text-sm text-red-200">
+              Unable to load recent donations right now. Please try again shortly.
+            </p>
+          ) : recentDonations.length === 0 ? (
+            <p className="rounded-lg border border-white/10 bg-black/20 p-3 text-sm text-bhasma-400">
+              No recent donations yet.
             </p>
           ) : (
             recentDonations.map(item => (

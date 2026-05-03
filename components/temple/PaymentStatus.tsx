@@ -1,6 +1,6 @@
 'use client'
 
-export type PaymentState = 'idle' | 'processing' | 'success' | 'failed' | 'cancelled'
+export type PaymentState = 'idle' | 'processing' | 'success' | 'failed' | 'cancelled' | 'abandoned'
 
 interface PaymentStatusProps {
   status: PaymentState
@@ -18,6 +18,7 @@ export default function PaymentStatus({ status, message, onRetry }: PaymentStatu
     success: 'border-green-400/30 bg-green-500/10 text-green-200',
     failed: 'border-red-400/30 bg-red-500/10 text-red-200',
     cancelled: 'border-yellow-400/30 bg-yellow-500/10 text-yellow-200',
+    abandoned: 'border-yellow-400/30 bg-yellow-500/10 text-yellow-200',
   }
 
   const defaultMessage = {
@@ -25,6 +26,7 @@ export default function PaymentStatus({ status, message, onRetry }: PaymentStatu
     success: 'Thank you for your donation. Har Har Mahadev.',
     failed: 'Payment failed. Please retry your donation.',
     cancelled: 'Payment was cancelled before completion.',
+    abandoned: 'Payment was not completed. You can try again.',
   }
 
   return (
@@ -34,7 +36,7 @@ export default function PaymentStatus({ status, message, onRetry }: PaymentStatu
       aria-live="polite"
     >
       <p className="font-medium">{message || defaultMessage[status]}</p>
-      {(status === 'failed' || status === 'cancelled') && onRetry ? (
+      {(status === 'failed' || status === 'cancelled' || status === 'abandoned') && onRetry ? (
         <button
           type="button"
           className="mt-3 rounded-lg bg-white/10 px-3 py-1.5 text-sm font-semibold text-white hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40"

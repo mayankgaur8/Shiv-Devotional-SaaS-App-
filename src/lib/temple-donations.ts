@@ -2,9 +2,10 @@ import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { sanitizeText } from '@/src/lib/sanitize'
+import Razorpay from 'razorpay'
 
-export type DonationStatus = 'created' | 'processing' | 'success' | 'failed' | 'cancelled'
-export type DonationGateway = 'razorpay' | 'mock'
+export type DonationStatus = 'created' | 'processing' | 'success' | 'failed' | 'cancelled' | 'abandoned'
+export type DonationGateway = 'razorpay'
 
 export interface DonationRecord {
   id: string
@@ -17,6 +18,7 @@ export interface DonationRecord {
   gatewayOrderId?: string
   gatewayPaymentId?: string
   gatewaySignature?: string
+  receiptId: string
   status: DonationStatus
   failureReason?: string
   createdAt: string
@@ -32,11 +34,15 @@ interface CreateDonationInput {
 
 interface RazorpayOrderResponse {
   id: string
+  amount: number
+  currency: 'INR'
 }
 
 const DEFAULT_PURPOSE = 'General Donation'
 
 export class DonationValidationError extends Error {}
+
+const DUPLICATE_PAYMENT_STATES = new Set<DonationStatus>(['success', 'processing'])
 
 function getStorePath(): string {
   return process.env.TEMPLE_DONATION_DB_FILE || path.join(process.cwd(), 'src/data/temple-donations.json')
@@ -54,14 +60,24 @@ async function ensureStoreFile(): Promise<string> {
 }
 
 async function readRecords(): Promise<DonationRecord[]> {
-  const storePath = await ensureStoreFile()
-  const raw = await readFile(storePath, 'utf8')
-  return JSON.parse(raw) as DonationRecord[]
+  try {
+    const storePath = await ensureStoreFile()
+    const raw = await readFile(storePath, 'utf8')
+    const parsed = JSON.parse(raw)
+    return Array.isArray(parsed) ? (parsed as DonationRecord[]) : []
+  } catch (error) {
+    console.error('temple-donations: read failed, using empty history', error)
+    return []
+  }
 }
 
 async function writeRecords(records: DonationRecord[]): Promise<void> {
-  const storePath = await ensureStoreFile()
-  await writeFile(storePath, JSON.stringify(records, null, 2), 'utf8')
+  try {
+    const storePath = await ensureStoreFile()
+    await writeFile(storePath, JSON.stringify(records, null, 2), 'utf8')
+  } catch (error) {
+    console.error('temple-donations: write failed', error)
+  }
 }
 
 export function validateCreateDonationInput(input: CreateDonationInput): CreateDonationInput {
@@ -105,9 +121,19 @@ export function getRazorpayCredentials(): { keyId: string; keySecret: string } |
   return { keyId, keySecret }
 }
 
+export function getRazorpayPublicKey(): string | null {
+  return process.env.NEXT_PUBLIC_RAZORPAY_KEY || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || process.env.RAZORPAY_KEY_ID || null
+}
+
+export function isDuplicatePaymentAttempt(record: DonationRecord | null): boolean {
+  if (!record) return false
+  return DUPLICATE_PAYMENT_STATES.has(record.status)
+}
+
 export async function createDonationRecord(input: CreateDonationInput): Promise<DonationRecord> {
   const payload = validateCreateDonationInput(input)
   const now = new Date().toISOString()
+  const receiptId = `rcpt_${Date.now()}_${Math.floor(Math.random() * 1_000_000)}`
 
   const record: DonationRecord = {
     id: randomUUID(),
@@ -116,7 +142,8 @@ export async function createDonationRecord(input: CreateDonationInput): Promise<
     purpose: payload.purpose || DEFAULT_PURPOSE,
     amount: payload.amount,
     currency: 'INR',
-    gateway: getRazorpayCredentials() ? 'razorpay' : 'mock',
+    gateway: 'razorpay',
+    receiptId,
     status: 'created',
     createdAt: now,
     updatedAt: now,
@@ -157,37 +184,59 @@ export async function getDonationById(donationId: string): Promise<DonationRecor
   return records.find(r => r.id === donationId) ?? null
 }
 
+export async function getDonationByOrderId(orderId: string): Promise<DonationRecord | null> {
+  const records = await readRecords()
+  return records.find(r => r.gatewayOrderId === orderId) ?? null
+}
+
 export async function listRecentDonations(limit = 8): Promise<DonationRecord[]> {
   const records = await readRecords()
   return records.slice(0, limit)
 }
 
-export async function createRazorpayOrder(amount: number, receipt: string): Promise<RazorpayOrderResponse | null> {
+export async function createRazorpayOrder(
+  amount: number,
+  receipt: string,
+  notes?: { name?: string; contact?: string; purpose?: string }
+): Promise<RazorpayOrderResponse> {
   const credentials = getRazorpayCredentials()
   if (!credentials) {
-    return null
+    throw new Error('Razorpay credentials are not configured on server.')
   }
 
-  const response = await fetch('https://api.razorpay.com/v1/orders', {
-    method: 'POST',
-    headers: {
-      Authorization: `Basic ${Buffer.from(`${credentials.keyId}:${credentials.keySecret}`).toString('base64')}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
+  const razorpay = new Razorpay({
+    key_id: credentials.keyId,
+    key_secret: credentials.keySecret,
+  })
+
+  const order = await razorpay.orders.create({
       amount: amount * 100,
       currency: 'INR',
       receipt,
-      payment_capture: 1,
-    }),
-    cache: 'no-store',
+      notes,
   })
 
-  if (!response.ok) {
-    throw new Error('Failed to create Razorpay order.')
+  return {
+    id: order.id,
+    amount: Number(order.amount),
+    currency: 'INR',
+  }
+}
+
+export function normalizeVerifyInput(input: {
+  orderId?: string
+  paymentId?: string
+  signature?: string
+}): { orderId: string; paymentId: string; signature: string } {
+  const orderId = sanitizeText(String(input.orderId || ''))
+  const paymentId = sanitizeText(String(input.paymentId || ''))
+  const signature = sanitizeText(String(input.signature || ''))
+
+  if (!orderId || !paymentId || !signature) {
+    throw new DonationValidationError('Missing payment verification fields.')
   }
 
-  return (await response.json()) as RazorpayOrderResponse
+  return { orderId, paymentId, signature }
 }
 
 export function verifyRazorpaySignature(orderId: string, paymentId: string, signature: string): boolean {
