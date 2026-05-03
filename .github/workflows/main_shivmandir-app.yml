@@ -58,31 +58,37 @@ jobs:
           ls -la
           echo "=== .next ==="
           ls -la .next
-          echo "=== .next/standalone ==="
+          echo "=== .next/standalone (ALL including dotfiles) ==="
           ls -la .next/standalone
+          echo "=== .next/standalone/.next ==="
+          ls -la .next/standalone/.next
 
       - name: Package standalone output
         run: |
           rm -rf release
           mkdir -p release
 
-          # Flatten standalone contents to release root so server.js
-          # lands at release/server.js and Azure can start with: node server.js
-          cp -R .next/standalone/* release/
+          # CRITICAL: use /. not /* so dotfile dirs are included.
+          # standalone/ contains a hidden .next/ subdir with compiled server
+          # bundles. Shell glob * silently drops it, causing MODULE_NOT_FOUND
+          # on every request and the "Application Error" screen on Azure.
+          cp -R .next/standalone/. release/
 
-          # Static client assets: server.js resolves these from .next/static
-          # relative to its own directory (process.cwd() == release/).
-          mkdir -p release/.next
+          # standalone does NOT include .next/static (client assets).
+          # server.js resolves them from process.cwd()/.next/static at runtime.
           cp -R .next/static release/.next/static
 
-          # Public assets served at runtime.
+          # Public assets (favicon, audio, manifest, sw.js, etc.).
           cp -R public release/public
 
-          echo "=== release ==="
+          echo "=== release root ==="
           ls -la release
+          echo "=== release/.next ==="
+          ls -la release/.next
 
-          # Hard-fail if the entry point is missing.
+          # Hard-fail if either critical path is absent.
           test -f release/server.js
+          test -d release/.next/server
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4

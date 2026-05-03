@@ -1,10 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { NextRequest, NextResponse } from 'next/server'
 
-const client = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-})
-
 const SHIV_SAHAYAK_SYSTEM = `You are Shiv Sahayak — a spiritually-grounded AI companion for Shiva devotees. You embody the wisdom of a knowledgeable fellow bhakt who has deeply studied the Shiv Purana, Rudraksha Jabalopanishad, Kashmir Shaivism, and Shaiva Siddhanta traditions.
 
 CORE IDENTITY:
@@ -55,6 +51,8 @@ export async function POST(req: NextRequest) {
         { status: 500 }
       )
     }
+
+    const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
     const response = await client.messages.create({
       model: 'claude-sonnet-4-6',
