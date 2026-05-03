@@ -16,3 +16,23 @@ export function safeStorageSet(key: string, value: string): boolean {
     return false
   }
 }
+
+export function safeStorageParse<T>(
+  key: string,
+  fallback: T,
+  isValid?: (value: unknown) => value is T,
+): T {
+  const raw = safeStorageGet(key)
+  if (!raw) return fallback
+
+  try {
+    const parsed = JSON.parse(raw) as unknown
+    if (isValid && !isValid(parsed)) {
+      return fallback
+    }
+    return parsed as T
+  } catch (error) {
+    console.error(`Invalid JSON in localStorage for key: ${key}`, error)
+    return fallback
+  }
+}

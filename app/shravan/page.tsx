@@ -2,6 +2,24 @@
 
 import { useState, useEffect } from 'react'
 import { shravan30Days, pujaChecklist } from '@/lib/shravan-data'
+import { safeStorageParse, safeStorageSet } from '@/src/lib/safe-storage'
+
+function isNumberArray(value: unknown): value is number[] {
+  return Array.isArray(value) && value.every((item) => typeof item === 'number')
+}
+
+function isStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((item) => typeof item === 'string')
+}
+
+function isChecklistMap(value: unknown): value is Record<string, boolean> {
+  return Boolean(
+    value
+    && typeof value === 'object'
+    && !Array.isArray(value)
+    && Object.values(value as Record<string, unknown>).every((item) => typeof item === 'boolean'),
+  )
+}
 
 export default function ShravanPage() {
   const [completedDays, setCompletedDays] = useState<Set<number>>(new Set())
@@ -13,14 +31,9 @@ export default function ShravanPage() {
 
   // Persist progress in localStorage
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem('shravan-completed')
-      if (saved) setCompletedDays(new Set(JSON.parse(saved)))
-      const savedChecklist = localStorage.getItem('shravan-checklist')
-      if (savedChecklist) setChecklist(JSON.parse(savedChecklist))
-      const savedFast = localStorage.getItem('shravan-fast')
-      if (savedFast) setFastDays(new Set(JSON.parse(savedFast)))
-    } catch {}
+    setCompletedDays(new Set(safeStorageParse('shravan-completed', [], isNumberArray)))
+    setChecklist(safeStorageParse('shravan-checklist', {}, isChecklistMap))
+    setFastDays(new Set(safeStorageParse('shravan-fast', [], isStringArray)))
   }, [])
 
   const toggleDay = (day: number) => {
@@ -28,7 +41,7 @@ export default function ShravanPage() {
       const next = new Set(prev)
       if (next.has(day)) next.delete(day)
       else next.add(day)
-      localStorage.setItem('shravan-completed', JSON.stringify([...next]))
+      safeStorageSet('shravan-completed', JSON.stringify([...next]))
       return next
     })
   }
@@ -36,7 +49,7 @@ export default function ShravanPage() {
   const toggleChecklist = (id: string) => {
     setChecklist(prev => {
       const next = { ...prev, [id]: !prev[id] }
-      localStorage.setItem('shravan-checklist', JSON.stringify(next))
+      safeStorageSet('shravan-checklist', JSON.stringify(next))
       return next
     })
   }
@@ -46,7 +59,7 @@ export default function ShravanPage() {
       const next = new Set(prev)
       if (next.has(day)) next.delete(day)
       else next.add(day)
-      localStorage.setItem('shravan-fast', JSON.stringify([...next]))
+      safeStorageSet('shravan-fast', JSON.stringify([...next]))
       return next
     })
   }
