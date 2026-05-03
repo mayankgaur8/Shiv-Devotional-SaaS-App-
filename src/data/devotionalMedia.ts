@@ -189,7 +189,7 @@ export const devotionalMedia: DevotionalMediaItem[] = [
     transliteration: 'Jatatavi Galajjala Pravaha Pavita Sthale...',
     meaning: 'Describes the transcendental dance of Shiva.',
     tags: ['Video', 'Stotra', 'Shivratri'],
-    youtubeId: 'ZpOHs3BmFOk',
+    youtubeId: 'hMBKmQEPNzI',
     captionsSrc: '/media/captions/shiv-tandav.vtt',
     releaseDate: '2025-01-30',
     popularity: 94,
