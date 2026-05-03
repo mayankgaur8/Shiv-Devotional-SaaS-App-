@@ -3,7 +3,7 @@ import { devotionalMedia, getMediaCandidateUrls, getMediaUrl } from '@/src/data/
 
 describe('devotional media sources', () => {
   it('keeps a local fallback candidate for Shiv Tandav audio', () => {
-    const track = devotionalMedia.find(item => item.id === 'shiv-tandav')
+    const track = devotionalMedia.find(item => item.id === 'shiv-tandav-stotram')
 
     expect(track).toBeDefined()
     expect(track?.src).toBe('/audio/ShivaTandavaStotram.mp3')

@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import BhajanClientPage from './BhajanClientPage'
+import BhajanLibraryClient from '@/components/bhajan/BhajanLibraryClient'
 
 export const metadata: Metadata = {
   title: 'Lord Shiva Bhajans, Mantras & Aarti | ShivMandir',
@@ -7,5 +7,5 @@ export const metadata: Metadata = {
 }
 
 export default function BhajanPage() {
-  return <BhajanClientPage />
+  return <BhajanLibraryClient />
 }

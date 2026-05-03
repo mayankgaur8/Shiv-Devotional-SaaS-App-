@@ -23,6 +23,31 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <body className={`${inter.variable} font-sans sacred-bg min-h-screen`}>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function () {
+  try {
+    var host = window.location.hostname;
+    var isLocal = host === 'localhost' || host === '127.0.0.1';
+    if (!isLocal) return;
+
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(function (regs) {
+        regs.forEach(function (reg) { reg.unregister(); });
+      });
+    }
+
+    if ('caches' in window) {
+      caches.keys().then(function (keys) {
+        keys.forEach(function (key) { caches.delete(key); });
+      });
+    }
+  } catch (e) {
+    console.warn('Local cache cleanup skipped', e);
+  }
+})();`,
+          }}
+        />
         <Navbar />
         <PwaEnhancer />
         <main className="pt-16">

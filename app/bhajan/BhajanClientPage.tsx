@@ -1,6 +1,5 @@
 'use client'
 
-import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -17,14 +16,7 @@ import { filterAndSortMedia, isMissingMedia, nextPlayState, toRecentlyPlayed, to
 import { safeStorageGet, safeStorageSet } from '@/src/lib/safe-storage'
 import { sanitizeText } from '@/src/lib/sanitize'
 import type { DevotionalMediaItem, SortOption } from '@/src/data/devotionalMedia'
-import LazyRender from '@/components/bhajan/LazyRender'
-
-const VideoMediaCard = dynamic(() => import('@/components/bhajan/VideoMediaCard'), {
-  ssr: false,
-  loading: () => (
-    <div className="rounded-2xl border border-white/10 bg-white/3 p-4 animate-pulse h-[360px]" aria-hidden="true" />
-  ),
-})
+import VideoMediaCard from '@/components/bhajan/VideoMediaCard'
 
 type RepeatMode = 'off' | 'one' | 'all'
 
@@ -107,7 +99,6 @@ export default function BhajanClientPage() {
   const [repeatMode, setRepeatMode] = useState<RepeatMode>('off')
   const [shuffle, setShuffle] = useState(false)
   const [expandedLyricsId, setExpandedLyricsId] = useState<string | null>(null)
-  const [isInitializing, setIsInitializing] = useState(true)
   const [storageAvailable, setStorageAvailable] = useState(true)
   const [isTrackLoading, setIsTrackLoading] = useState(false)
   const [isBuffering, setIsBuffering] = useState(false)
@@ -115,13 +106,9 @@ export default function BhajanClientPage() {
   const [resumePosition, setResumePosition] = useState<ResumePosition | null>(null)
   const [playerErrorMessage, setPlayerErrorMessage] = useState<string | null>(null)
 
+  const mediaItems = useMemo(() => (Array.isArray(devotionalMedia) ? devotionalMedia : []), [])
+
   useEffect(() => {
-    const slowNet = typeof navigator !== 'undefined' && 'connection' in navigator
-      ? (navigator as Navigator & { connection?: { effectiveType?: string } }).connection?.effectiveType?.includes('2g')
-      : false
-
-    const timer = setTimeout(() => setIsInitializing(false), slowNet ? 1200 : 600)
-
     try {
       const storedFav = safeStorageGet('shiv-favorites')
       const storedRecent = safeStorageGet('shiv-recently-played')
@@ -146,7 +133,6 @@ export default function BhajanClientPage() {
     window.addEventListener('offline', handleOffline)
 
     return () => {
-      clearTimeout(timer)
       window.removeEventListener('online', handleOnline)
       window.removeEventListener('offline', handleOffline)
     }
@@ -183,12 +169,12 @@ export default function BhajanClientPage() {
   }, [pathname])
 
   const baseItems = useMemo(() => {
-    if (!activePlaylistId) return devotionalMedia
+    if (!activePlaylistId) return mediaItems
     const playlist = devotionalPlaylists.find(p => p.id === activePlaylistId)
-    if (!playlist) return devotionalMedia
+    if (!playlist) return mediaItems
     const idSet = new Set(playlist.trackIds)
-    return devotionalMedia.filter(item => idSet.has(item.id))
-  }, [activePlaylistId])
+    return mediaItems.filter(item => idSet.has(item.id))
+  }, [activePlaylistId, mediaItems])
 
   const filteredSortedMedia = useMemo(() => {
     return filterAndSortMedia(baseItems, {
@@ -206,8 +192,8 @@ export default function BhajanClientPage() {
 
   const currentTrack = useMemo(() => {
     if (!currentTrackId) return null
-    return devotionalMedia.find(item => item.id === currentTrackId && item.type === 'audio') || null
-  }, [currentTrackId])
+    return mediaItems.find(item => item.id === currentTrackId && item.type === 'audio') || null
+  }, [currentTrackId, mediaItems])
 
   const currentQueueIndex = useMemo(() => {
     if (!currentTrackId) return -1
@@ -240,7 +226,7 @@ export default function BhajanClientPage() {
 
   const handleSelectTrack = useCallback((trackId: string, options?: { autoplay?: boolean; startAt?: number }) => {
     const audio = audioRef.current
-    const track = devotionalMedia.find(item => item.id === trackId && item.type === 'audio')
+    const track = mediaItems.find(item => item.id === trackId && item.type === 'audio')
     if (!audio || !track) return
 
     if (mediaErrors.has(trackId)) {
@@ -274,16 +260,16 @@ export default function BhajanClientPage() {
         setIsTrackLoading(false)
         setPlayerErrorMessage(`Playback was blocked for ${sanitizeText(track.title)}. Tap play again to retry.`)
       })
-  }, [addToRecent, mediaErrors])
+  }, [addToRecent, mediaErrors, mediaItems])
 
   useEffect(() => {
     if (!resumePosition || currentTrackId) return
 
-    const trackExists = devotionalMedia.some(item => item.id === resumePosition.trackId && item.type === 'audio')
+    const trackExists = mediaItems.some(item => item.id === resumePosition.trackId && item.type === 'audio')
     if (!trackExists) return
 
     handleSelectTrack(resumePosition.trackId, { autoplay: false, startAt: resumePosition.time })
-  }, [currentTrackId, handleSelectTrack, resumePosition])
+  }, [currentTrackId, handleSelectTrack, mediaItems, resumePosition])
 
   const togglePlayPause = useCallback(() => {
     const audio = audioRef.current
@@ -398,17 +384,17 @@ export default function BhajanClientPage() {
   }, [])
 
   const recentlyPlayedItems = useMemo(() => {
-    const idMap = new Map(devotionalMedia.map(item => [item.id, item]))
+    const idMap = new Map(mediaItems.map(item => [item.id, item]))
     return recentlyPlayed
       .map(id => idMap.get(id))
       .filter((item): item is DevotionalMediaItem => Boolean(item))
       .slice(0, 6)
-  }, [recentlyPlayed])
+  }, [mediaItems, recentlyPlayed])
 
   const favoriteItems = useMemo(() => {
     const set = new Set(favorites)
-    return devotionalMedia.filter(item => set.has(item.id)).slice(0, 8)
-  }, [favorites])
+    return mediaItems.filter(item => set.has(item.id)).slice(0, 8)
+  }, [favorites, mediaItems])
 
   return (
     <div className="min-h-screen px-4 py-8 max-w-6xl mx-auto pb-56 md:pb-44">
@@ -694,16 +680,10 @@ export default function BhajanClientPage() {
         </section>
       )}
 
-      {isInitializing ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {Array.from({ length: 4 }).map((_, idx) => (
-            <div key={idx} className="rounded-2xl border border-white/10 bg-white/3 p-4 animate-pulse h-56" />
-          ))}
-        </div>
-      ) : filteredSortedMedia.length === 0 ? (
+      {filteredSortedMedia.length === 0 ? (
         <div className="rounded-2xl border border-white/10 bg-white/3 p-8 text-center">
           <p className="text-4xl mb-2">🔍</p>
-          <h3 className="text-bhasma-100 font-semibold mb-1">No devotional media found</h3>
+          <h3 className="text-bhasma-100 font-semibold mb-1">No bhajans found</h3>
           <p className="text-bhasma-500 text-sm">Try a different search term, category, or reset filters.</p>
         </div>
       ) : (
@@ -717,8 +697,8 @@ export default function BhajanClientPage() {
                 const isCurrent = currentTrackId === item.id
 
                 return (
-                  <LazyRender key={item.id} minHeight={220}>
                   <article
+                    key={item.id}
                     className={`rounded-2xl p-4 border ${
                       isCurrent
                         ? 'bg-saffron-500/10 border-saffron-500/40'
@@ -770,7 +750,23 @@ export default function BhajanClientPage() {
                         Audio not available. Expected local file URL: {item.src}
                       </div>
                     ) : (
-                      <div className="mt-3 flex flex-wrap gap-2">
+                      <div className="mt-3 space-y-3">
+                        <audio
+                          controls
+                          preload="metadata"
+                          className="w-full"
+                          onError={() => {
+                            console.error('[bhajan:audio-card-error]', { id: item.id, src: item.src })
+                            handleMediaError(item.id, 'audio-card-load-failed')
+                          }}
+                        >
+                          {getMediaCandidateUrls(item.src, item.cdnSrc).map((src) => (
+                            <source key={src} src={src} type="audio/mpeg" />
+                          ))}
+                          Your browser does not support audio.
+                        </audio>
+
+                        <div className="flex flex-wrap gap-2">
                         <button
                           type="button"
                           onClick={() => handleSelectTrack(item.id)}
@@ -813,6 +809,7 @@ export default function BhajanClientPage() {
                         >
                           Details
                         </Link>
+                        </div>
                       </div>
                     )}
 
@@ -833,7 +830,6 @@ export default function BhajanClientPage() {
                       </div>
                     )}
                   </article>
-                  </LazyRender>
                 )
               })}
             </div>
@@ -843,9 +839,9 @@ export default function BhajanClientPage() {
             <h2 className="text-xs uppercase tracking-widest text-bhasma-500 font-semibold mb-4">Video Library</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               {filteredSortedMedia.filter(item => item.type === 'video').map((item) => (
-                <LazyRender key={item.id} minHeight={360}>
+                <div key={item.id}>
                   <VideoMediaCard item={item} onError={(id) => handleMediaError(id, 'video-load-failed')} />
-                </LazyRender>
+                </div>
               ))}
             </div>
           </section>

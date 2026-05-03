@@ -1,5 +1,5 @@
-const STATIC_CACHE = 'shivmandir-static-v1';
-const MEDIA_CACHE = 'shivmandir-media-v1';
+const STATIC_CACHE = 'shivmandir-static-v2';
+const MEDIA_CACHE = 'shivmandir-media-v2';
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -31,6 +31,15 @@ self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
+  if (request.method !== 'GET') {
+    return;
+  }
+
+  // Never cache Next.js build assets. Stale chunk caches cause ChunkLoadError after rebuilds.
+  if (url.pathname.startsWith('/_next/')) {
+    return;
+  }
+
   if (url.pathname.startsWith('/media/')) {
     event.respondWith(
       caches.open(MEDIA_CACHE).then(async (cache) => {
@@ -51,17 +60,29 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  if (request.method === 'GET') {
+  if (request.mode === 'navigate') {
     event.respondWith(
-      caches.match(request).then((cached) => {
-        if (cached) return cached;
-        return fetch(request).then((response) => {
+      fetch(request)
+        .then((response) => {
           if (response && response.status === 200 && request.url.startsWith(self.location.origin)) {
             caches.open(STATIC_CACHE).then((cache) => cache.put(request, response.clone()));
           }
           return response;
-        });
-      })
+        })
+        .catch(() => caches.match(request).then((cached) => cached || caches.match('/')))
     );
+    return;
   }
+
+  event.respondWith(
+    caches.match(request).then((cached) => {
+      if (cached) return cached;
+      return fetch(request).then((response) => {
+        if (response && response.status === 200 && request.url.startsWith(self.location.origin)) {
+          caches.open(STATIC_CACHE).then((cache) => cache.put(request, response.clone()));
+        }
+        return response;
+      });
+    })
+  );
 });

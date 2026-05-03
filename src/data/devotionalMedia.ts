@@ -162,7 +162,7 @@ export const devotionalMedia: DevotionalMediaItem[] = [
     allowDownload: false,
   },
   {
-    id: 'shiv-tandav',
+    id: 'shiv-tandav-stotram',
     slug: 'shiv-tandav-stotram-audio',
     title: 'Shiv Tandav Stotram (Audio)',
     artist: 'Vedic Recitation',
@@ -314,7 +314,7 @@ export const devotionalPlaylists: DevotionalPlaylist[] = [
     title: 'Shivratri Special',
     description: 'Intense devotion for the night of Shiva.',
     icon: '🌙',
-    trackIds: ['shiv-tandav', 'shiv-tandav-video', 'har-har-mahadev'],
+    trackIds: ['shiv-tandav-stotram', 'shiv-tandav-video', 'har-har-mahadev'],
   },
   {
     id: 'maha-mrityunjaya-healing',

@@ -13,9 +13,19 @@ export default function PwaEnhancer() {
 
   useEffect(() => {
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js').catch(() => {
-        // Ignore registration failures in unsupported contexts.
-      })
+      const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+
+      if (isLocalhost) {
+        navigator.serviceWorker.getRegistrations()
+          .then((registrations) => Promise.all(registrations.map((reg) => reg.unregister())))
+          .catch(() => {
+            // Ignore cleanup failures in dev.
+          })
+      } else {
+        navigator.serviceWorker.register('/sw.js').catch(() => {
+          // Ignore registration failures in unsupported contexts.
+        })
+      }
     }
 
     const handleBeforeInstallPrompt = (event: Event) => {
