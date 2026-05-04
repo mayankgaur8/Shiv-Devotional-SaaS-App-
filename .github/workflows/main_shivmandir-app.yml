@@ -58,6 +58,11 @@ jobs:
           ls -la .next/standalone
           echo "=== .next/standalone/.next ==="
           ls -la .next/standalone/.next
+          echo "=== Static app chunks (all routes) ==="
+          find .next/static/chunks/app -type f | sort
+          echo "=== Temple page chunk ==="
+          find .next/static/chunks/app -path "*temple*" -type f \
+            || { echo "::error::No temple page chunk found in build output"; exit 1; }
 
       - name: Package standalone output
         run: |
@@ -65,20 +70,27 @@ jobs:
           mkdir -p release
 
           cp -R .next/standalone/. release/
+
+          mkdir -p release/.next
           cp -R .next/static release/.next/static
-          cp -R public release/public
+
+          if [ -d public ]; then
+            cp -R public release/public
+          fi
 
           echo "=== release root ==="
           ls -la release
           echo "=== release/.next ==="
           ls -la release/.next
-          echo "=== release tree (first 80 files) ==="
-          find release -maxdepth 3 -type f | head -80
+          echo "=== release/.next/static/chunks/app ==="
+          find release/.next/static/chunks/app -type f | sort
 
-          test -f release/server.js
-          test -d release/.next/server
-          test -d release/.next/static
-          test -d release/public
+          test -f release/server.js          || { echo "::error::server.js missing"; exit 1; }
+          test -d release/.next/server       || { echo "::error::.next/server missing"; exit 1; }
+          test -d release/.next/static       || { echo "::error::.next/static missing"; exit 1; }
+          test -d release/public             || { echo "::error::public missing"; exit 1; }
+          find release/.next/static/chunks/app -path "*temple*" -type f \
+            || { echo "::error::temple page chunk missing from release"; exit 1; }
 
       - name: Create deployment ZIP
         run: |
@@ -90,9 +102,12 @@ jobs:
           echo "=== ZIP top-level ==="
           unzip -l release.zip | head -40
           echo "=== Critical entries ==="
-          unzip -l release.zip | grep "server.js"
-          unzip -l release.zip | grep ".next/static"
-          unzip -l release.zip | grep ".next/server"
+          unzip -l release.zip | grep "server\.js"
+          unzip -l release.zip | grep "\.next/static"
+          unzip -l release.zip | grep "\.next/server"
+          echo "=== Temple page chunk in ZIP ==="
+          unzip -l release.zip | grep "temple" \
+            || { echo "::error::temple chunk missing from release.zip"; exit 1; }
 
       - name: Upload deployment ZIP
         uses: actions/upload-artifact@v4
