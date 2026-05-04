@@ -111,13 +111,17 @@ jobs:
       - name: Validate Azure publish profile secret
         run: |
           if [ -z "$PUBLISH_PROFILE" ]; then
-            echo "ERROR: AZURE_WEBAPP_PUBLISH_PROFILE secret is missing."
-            echo "Fix: GitHub repo → Settings → Secrets and variables → Actions → New repository secret"
-            echo "Name: AZURE_WEBAPP_PUBLISH_PROFILE"
-            echo "Value: full XML from Azure Portal → App Service → Overview → Get publish profile"
+            echo "::error::AZURE_WEBAPP_PUBLISH_PROFILE secret is missing or empty."
+            echo ""
+            echo "To fix:"
+            echo "  1. Azure Portal → App Services → shivmandir-app → Overview → Get publish profile"
+            echo "  2. Open the downloaded file and copy the full XML"
+            echo "  3. GitHub repo → Settings → Secrets and variables → Actions → New repository secret"
+            echo "     Name:  AZURE_WEBAPP_PUBLISH_PROFILE"
+            echo "     Value: <paste full XML here>"
             exit 1
           fi
-          echo "Publish profile secret is present."
+          echo "OK: AZURE_WEBAPP_PUBLISH_PROFILE is set (length=${#PUBLISH_PROFILE})"
         env:
           PUBLISH_PROFILE: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
 
@@ -127,13 +131,26 @@ jobs:
           name: node-app
           path: .
 
-      - name: Verify artifact
+      - name: Debug downloaded artifact
         run: |
+          echo "=== Working directory ==="
+          pwd
+          echo "=== Files present ==="
           ls -la
-          test -f release.zip
+          echo "=== File tree (depth 2) ==="
+          find . -maxdepth 2 -type f | head -50
+
+      - name: Validate release ZIP
+        run: |
+          test -f release.zip || { echo "::error::release.zip not found after artifact download"; exit 1; }
+          echo "ZIP size: $(du -sh release.zip | cut -f1)"
+          echo "=== ZIP contents (first 50 entries) ==="
           unzip -l release.zip | head -50
-          unzip -l release.zip | grep "server.js"
-          unzip -l release.zip | grep ".next/static"
+          echo "=== Critical entries ==="
+          unzip -l release.zip | grep "server.js"   || { echo "::error::server.js missing in ZIP"; exit 1; }
+          unzip -l release.zip | grep ".next/static" || { echo "::error::.next/static missing in ZIP"; exit 1; }
+          unzip -l release.zip | grep ".next/server" || { echo "::error::.next/server missing in ZIP"; exit 1; }
+          echo "OK: release.zip is valid"
 
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v3
