@@ -54,11 +54,7 @@ jobs:
 
       - name: Debug build output
         run: |
-          echo "=== repo root ==="
-          ls -la
-          echo "=== .next ==="
-          ls -la .next
-          echo "=== .next/standalone (ALL including dotfiles) ==="
+          echo "=== .next/standalone (dotfiles visible) ==="
           ls -la .next/standalone
           echo "=== .next/standalone/.next ==="
           ls -la .next/standalone/.next
@@ -68,33 +64,51 @@ jobs:
           rm -rf release
           mkdir -p release
 
-          # CRITICAL: use /. not /* so dotfile dirs are included.
-          # standalone/ contains a hidden .next/ subdir with compiled server
-          # bundles. Shell glob * silently drops it, causing MODULE_NOT_FOUND
-          # on every request and the "Application Error" screen on Azure.
+          # /. suffix copies all contents including the hidden .next/ subdir
+          # (shell glob * would silently skip it).
           cp -R .next/standalone/. release/
 
-          # standalone does NOT include .next/static (client assets).
-          # server.js resolves them from process.cwd()/.next/static at runtime.
+          # standalone omits .next/static — server.js expects it at
+          # process.cwd()/.next/static.
           cp -R .next/static release/.next/static
 
-          # Public assets (favicon, audio, manifest, sw.js, etc.).
           cp -R public release/public
 
           echo "=== release root ==="
           ls -la release
           echo "=== release/.next ==="
           ls -la release/.next
+          echo "=== release tree (first 80 files) ==="
+          find release -maxdepth 3 -type f | head -80
 
-          # Hard-fail if either critical path is absent.
           test -f release/server.js
           test -d release/.next/server
+          test -d release/.next/static
+          test -d release/public
 
-      - name: Upload build artifact
+      - name: Create deployment ZIP
+        run: |
+          # zip -r from inside the directory keeps server.js at archive root
+          # and preserves symlinks in node_modules/.bin correctly.
+          # The action's built-in folder archiver does NOT handle symlinks,
+          # which causes Kudu's "Fetching changes" step to fail on Azure.
+          cd release
+          zip -r ../release.zip .
+          cd ..
+
+          echo "ZIP size: $(du -sh release.zip | cut -f1)"
+          echo "=== ZIP top-level entries ==="
+          unzip -l release.zip | head -60
+          echo "=== Verify critical entries ==="
+          unzip -l release.zip | grep "server.js"
+          unzip -l release.zip | grep ".next/static"
+          unzip -l release.zip | grep ".next/server"
+
+      - name: Upload deployment ZIP
         uses: actions/upload-artifact@v4
         with:
           name: node-app
-          path: release
+          path: release.zip
           if-no-files-found: error
 
   deploy:
@@ -105,11 +119,18 @@ jobs:
       contents: read
 
     steps:
-      - name: Download build artifact
+      - name: Download deployment ZIP
         uses: actions/download-artifact@v4
         with:
           name: node-app
-          path: release
+          path: .
+
+      - name: Verify downloaded ZIP
+        run: |
+          ls -la
+          echo "ZIP size: $(du -sh release.zip | cut -f1)"
+          unzip -l release.zip | grep "server.js"
+          unzip -l release.zip | grep ".next/static"
 
       - name: Login to Azure
         uses: azure/login@v2
@@ -122,10 +143,12 @@ jobs:
         uses: azure/appservice-settings@v1
         with:
           app-name: 'shivmandir-app'
-          slot-name: 'Production'
+          # No slot-name: omitting targets the production slot correctly.
+          # 'Production' (capital-P) is misread as a staging slot name.
           app-settings-json: >-
             [
               {"name": "SCM_DO_BUILD_DURING_DEPLOYMENT", "value": "false",      "slotSetting": false},
+              {"name": "ENABLE_ORYX_BUILD",              "value": "false",      "slotSetting": false},
               {"name": "WEBSITE_NODE_DEFAULT_VERSION",   "value": "~22",        "slotSetting": false},
               {"name": "NODE_ENV",                       "value": "production", "slotSetting": false},
               {"name": "PORT",                           "value": "8080",       "slotSetting": false},
@@ -137,5 +160,5 @@ jobs:
         with:
           app-name: 'shivmandir-app'
           slot-name: 'Production'
-          package: release
+          package: release.zip
           startup-command: 'node server.js'
