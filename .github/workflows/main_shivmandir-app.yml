@@ -105,7 +105,6 @@ jobs:
     runs-on: ubuntu-latest
     needs: build
     permissions:
-      id-token: write
       contents: read
 
     steps:
@@ -117,55 +116,16 @@ jobs:
 
       - name: Verify downloaded ZIP
         run: |
-          ls -la release.zip
+          ls -la
+          test -f release.zip
+          unzip -l release.zip | head -50
           unzip -l release.zip | grep "server.js"
           unzip -l release.zip | grep ".next/static"
 
-      - name: Login to Azure
-        uses: azure/login@v2
+      - name: Deploy to Azure App Service
+        uses: azure/webapps-deploy@v3
         with:
-          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_2E12F77A25A7445DA632F3CE8BDAEFC7 }}
-          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_079BCE68D4D845F380BC5A5A5152FBA2 }}
-          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_09BA46F7116440B38361541CCE9EB041 }}
-
-      - name: Resolve resource group
-        id: rg
-        run: |
-          RG=$(az webapp list \
-            --query "[?name=='shivmandir-app'].resourceGroup" \
-            --output tsv)
-          if [ -z "$RG" ]; then
-            echo "::error::Could not resolve resource group for 'shivmandir-app'. Verify service principal permissions."
-            exit 1
-          fi
-          echo "name=$RG" >> "$GITHUB_OUTPUT"
-          echo "Resource group: $RG"
-
-      - name: Configure Azure App Settings
-        run: |
-          az webapp config appsettings set \
-            --name shivmandir-app \
-            --resource-group "${{ steps.rg.outputs.name }}" \
-            --settings \
-              SCM_DO_BUILD_DURING_DEPLOYMENT=false \
-              ENABLE_ORYX_BUILD=false \
-              WEBSITE_NODE_DEFAULT_VERSION="~22" \
-              NODE_ENV=production \
-              PORT=8080 \
-              HOSTNAME=0.0.0.0 \
-              "TEMPLE_DONATION_DB_FILE=/home/temple-donations.json"
-
-      - name: Set startup command
-        run: |
-          az webapp config set \
-            --name shivmandir-app \
-            --resource-group "${{ steps.rg.outputs.name }}" \
-            --startup-file "node server.js"
-
-      - name: Deploy ZIP to Azure App Service
-        run: |
-          az webapp deploy \
-            --name shivmandir-app \
-            --resource-group "${{ steps.rg.outputs.name }}" \
-            --src-path release.zip \
-            --type zip
+          app-name: 'shivmandir-app'
+          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE }}
+          package: release.zip
+          startup-command: 'node server.js'
