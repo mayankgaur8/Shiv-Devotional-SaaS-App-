@@ -147,12 +147,13 @@ jobs:
           # 'Production' (capital-P) is misread as a staging slot name.
           app-settings-json: >-
             [
-              {"name": "SCM_DO_BUILD_DURING_DEPLOYMENT", "value": "false",      "slotSetting": false},
-              {"name": "ENABLE_ORYX_BUILD",              "value": "false",      "slotSetting": false},
-              {"name": "WEBSITE_NODE_DEFAULT_VERSION",   "value": "~22",        "slotSetting": false},
-              {"name": "NODE_ENV",                       "value": "production", "slotSetting": false},
-              {"name": "PORT",                           "value": "8080",       "slotSetting": false},
-              {"name": "HOSTNAME",                       "value": "0.0.0.0",    "slotSetting": false}
+              {"name": "SCM_DO_BUILD_DURING_DEPLOYMENT", "value": "false",                              "slotSetting": false},
+              {"name": "ENABLE_ORYX_BUILD",              "value": "false",                              "slotSetting": false},
+              {"name": "WEBSITE_NODE_DEFAULT_VERSION",   "value": "~22",                                "slotSetting": false},
+              {"name": "NODE_ENV",                       "value": "production",                         "slotSetting": false},
+              {"name": "PORT",                           "value": "8080",                               "slotSetting": false},
+              {"name": "HOSTNAME",                       "value": "0.0.0.0",                            "slotSetting": false},
+              {"name": "TEMPLE_DONATION_DB_FILE",        "value": "/home/temple-donations.json",        "slotSetting": false}
             ]
 
       - name: Deploy to Azure App Service

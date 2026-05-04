@@ -64,21 +64,21 @@ async function readRecords(): Promise<DonationRecord[]> {
   try {
     const storePath = await ensureStoreFile()
     const raw = await readFile(storePath, 'utf8')
-    const parsed = JSON.parse(raw)
+    const parsed: unknown = JSON.parse(raw)
     return Array.isArray(parsed) ? (parsed as DonationRecord[]) : []
   } catch (error) {
+    // Corrupted or missing file — treat as empty so reads never crash the server.
+    // Write errors are handled separately and will propagate to callers.
     console.error('temple-donations: read failed, using empty history', error)
     return []
   }
 }
 
+// Throws on any filesystem error so callers (API routes) can return a
+// proper HTTP 500 instead of silently proceeding with an unpersisted record.
 async function writeRecords(records: DonationRecord[]): Promise<void> {
-  try {
-    const storePath = await ensureStoreFile()
-    await writeFile(storePath, JSON.stringify(records, null, 2), 'utf8')
-  } catch (error) {
-    console.error('temple-donations: write failed', error)
-  }
+  const storePath = await ensureStoreFile()
+  await writeFile(storePath, JSON.stringify(records, null, 2), 'utf8')
 }
 
 export function validateCreateDonationInput(input: CreateDonationInput): CreateDonationInput {
