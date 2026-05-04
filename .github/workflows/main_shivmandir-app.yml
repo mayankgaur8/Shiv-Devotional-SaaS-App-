@@ -118,9 +118,24 @@ jobs:
           tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_079BCE68D4D845F380BC5A5A5152FBA2 }}
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_09BA46F7116440B38361541CCE9EB041 }}
 
+      - name: Configure Azure App Settings
+        uses: azure/appservice-settings@v1
+        with:
+          app-name: 'shivmandir-app'
+          slot-name: 'Production'
+          app-settings-json: >-
+            [
+              {"name": "SCM_DO_BUILD_DURING_DEPLOYMENT", "value": "false",      "slotSetting": false},
+              {"name": "WEBSITE_NODE_DEFAULT_VERSION",   "value": "~22",        "slotSetting": false},
+              {"name": "NODE_ENV",                       "value": "production", "slotSetting": false},
+              {"name": "PORT",                           "value": "8080",       "slotSetting": false},
+              {"name": "HOSTNAME",                       "value": "0.0.0.0",    "slotSetting": false}
+            ]
+
       - name: Deploy to Azure App Service
         uses: azure/webapps-deploy@v3
         with:
           app-name: 'shivmandir-app'
           slot-name: 'Production'
           package: release
+          startup-command: 'node server.js'
