@@ -158,4 +158,3 @@ jobs:
           app-name: 'shivmandir-app'
           publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
           package: release.zip
-          startup-command: 'node server.js'
