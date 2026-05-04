@@ -63,14 +63,30 @@ interface ToastMessage {
   text: string
 }
 
-async function requestWithRetry(input: RequestInfo | URL, init: RequestInit, retries = 2): Promise<Response> {
+// timeoutMs: abort the fetch after this many milliseconds (0 = no timeout).
+// Only AbortError (timeout) is NOT retried — real network errors still retry.
+async function requestWithRetry(
+  input: RequestInfo | URL,
+  init: RequestInit,
+  retries = 2,
+  timeoutMs = 0
+): Promise<Response> {
   let attempt = 0
   let lastError: unknown = null
 
   while (attempt <= retries) {
+    const controller = new AbortController()
+    const tid = timeoutMs > 0 ? window.setTimeout(() => controller.abort(), timeoutMs) : null
+
     try {
-      return await fetch(input, init)
+      const res = await fetch(input, { ...init, signal: controller.signal })
+      if (tid !== null) window.clearTimeout(tid)
+      return res
     } catch (error) {
+      if (tid !== null) window.clearTimeout(tid)
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        throw new Error('Request timed out. Please check your connection and try again.')
+      }
       lastError = error
       attempt += 1
       if (attempt > retries) break
@@ -183,6 +199,7 @@ export default function DonationModal({
     }
 
     const hasScript = await loadRazorpayScript()
+    console.log('[Razorpay] Script loaded:', hasScript)
 
     const Razorpay = (window as Window & { Razorpay?: RazorpayConstructor }).Razorpay
 
@@ -203,16 +220,22 @@ export default function DonationModal({
       },
       handler: async (response: RazorpayHandlerResponse) => {
         try {
-          const verifyResponse = await requestWithRetry('/api/payment/verify', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              donationId: data.donationId,
-              razorpay_order_id: response.razorpay_order_id,
-              razorpay_payment_id: response.razorpay_payment_id,
-              razorpay_signature: response.razorpay_signature,
-            }),
-          })
+          console.log('[Razorpay] Payment captured, verifying...', { paymentId: response.razorpay_payment_id })
+          const verifyResponse = await requestWithRetry(
+            '/api/payment/verify',
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                donationId: data.donationId,
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+              }),
+            },
+            2,
+            15_000
+          )
 
           const verifyResult = await verifyResponse.json()
 
@@ -246,6 +269,7 @@ export default function DonationModal({
       },
     }
 
+    console.log('[Razorpay] Opening checkout', { orderId: data.orderId, amount: data.amount, key: data.key?.slice(0, 8) + '...' })
     const checkout = new Razorpay(options)
     checkout.on('payment.failed', (response) => {
       void updateRemoteStatus(data.donationId, 'failed', response.error?.description)
@@ -276,11 +300,17 @@ export default function DonationModal({
     setFeedback('Initializing secure payment...')
 
     try {
-      const response = await requestWithRetry('/api/payment/create-order', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, contact, amount, purpose }),
-      })
+      console.log('[Razorpay] Creating order...', { amount, purpose })
+      const response = await requestWithRetry(
+        '/api/payment/create-order',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, contact, amount, purpose }),
+        },
+        2,
+        15_000  // 15-second timeout; prevents infinite "Processing payment..." on Azure cold start
+      )
 
       const result = (await response.json()) as CreateOrderResponse
 

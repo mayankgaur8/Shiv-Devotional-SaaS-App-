@@ -48,8 +48,10 @@ function matchesDuplicate(
 export async function POST(request: Request) {
   try {
     const body = (await request.json()) as CreateOrderBody
+    console.log('[create-order] Request received', { amount: body.amount, name: body.name, purpose: body.purpose })
 
     if (!getRazorpayCredentials()) {
+      console.error('[create-order] Razorpay credentials missing — set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET in Azure App Settings')
       return NextResponse.json(
         { success: false, error: 'Razorpay credentials missing. Please configure server environment.' },
         { status: 500 }
@@ -82,6 +84,7 @@ export async function POST(request: Request) {
       contact: donation.contact,
       purpose: donation.purpose,
     })
+    console.log('[create-order] Razorpay order created', { orderId: order.id, amount: order.amount })
 
     await updateDonationRecord(donation.id, {
       status: 'processing',

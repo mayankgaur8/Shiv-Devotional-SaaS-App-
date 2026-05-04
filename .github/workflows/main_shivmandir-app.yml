@@ -54,24 +54,18 @@ jobs:
 
       - name: Debug build output
         run: |
-          echo "=== .next/standalone (dotfiles visible) ==="
+          echo "=== .next/standalone ==="
           ls -la .next/standalone
           echo "=== .next/standalone/.next ==="
           ls -la .next/standalone/.next
 
       - name: Package standalone output
         run: |
-          rm -rf release
+          rm -rf release release.zip
           mkdir -p release
 
-          # /. suffix copies all contents including the hidden .next/ subdir
-          # (shell glob * would silently skip it).
           cp -R .next/standalone/. release/
-
-          # standalone omits .next/static — server.js expects it at
-          # process.cwd()/.next/static.
           cp -R .next/static release/.next/static
-
           cp -R public release/public
 
           echo "=== release root ==="
@@ -88,18 +82,14 @@ jobs:
 
       - name: Create deployment ZIP
         run: |
-          # zip -r from inside the directory keeps server.js at archive root
-          # and preserves symlinks in node_modules/.bin correctly.
-          # The action's built-in folder archiver does NOT handle symlinks,
-          # which causes Kudu's "Fetching changes" step to fail on Azure.
           cd release
           zip -r ../release.zip .
           cd ..
 
           echo "ZIP size: $(du -sh release.zip | cut -f1)"
-          echo "=== ZIP top-level entries ==="
-          unzip -l release.zip | head -60
-          echo "=== Verify critical entries ==="
+          echo "=== ZIP top-level ==="
+          unzip -l release.zip | head -40
+          echo "=== Critical entries ==="
           unzip -l release.zip | grep "server.js"
           unzip -l release.zip | grep ".next/static"
           unzip -l release.zip | grep ".next/server"
@@ -127,8 +117,7 @@ jobs:
 
       - name: Verify downloaded ZIP
         run: |
-          ls -la
-          echo "ZIP size: $(du -sh release.zip | cut -f1)"
+          ls -la release.zip
           unzip -l release.zip | grep "server.js"
           unzip -l release.zip | grep ".next/static"
 
@@ -139,27 +128,44 @@ jobs:
           tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_079BCE68D4D845F380BC5A5A5152FBA2 }}
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_09BA46F7116440B38361541CCE9EB041 }}
 
-      - name: Configure Azure App Settings
-        uses: azure/appservice-settings@v1
-        with:
-          app-name: 'shivmandir-app'
-          # No slot-name: omitting targets the production slot correctly.
-          # 'Production' (capital-P) is misread as a staging slot name.
-          app-settings-json: >-
-            [
-              {"name": "SCM_DO_BUILD_DURING_DEPLOYMENT", "value": "false",                              "slotSetting": false},
-              {"name": "ENABLE_ORYX_BUILD",              "value": "false",                              "slotSetting": false},
-              {"name": "WEBSITE_NODE_DEFAULT_VERSION",   "value": "~22",                                "slotSetting": false},
-              {"name": "NODE_ENV",                       "value": "production",                         "slotSetting": false},
-              {"name": "PORT",                           "value": "8080",                               "slotSetting": false},
-              {"name": "HOSTNAME",                       "value": "0.0.0.0",                            "slotSetting": false},
-              {"name": "TEMPLE_DONATION_DB_FILE",        "value": "/home/temple-donations.json",        "slotSetting": false}
-            ]
+      - name: Resolve resource group
+        id: rg
+        run: |
+          RG=$(az webapp list \
+            --query "[?name=='shivmandir-app'].resourceGroup" \
+            --output tsv)
+          if [ -z "$RG" ]; then
+            echo "::error::Could not resolve resource group for 'shivmandir-app'. Verify service principal permissions."
+            exit 1
+          fi
+          echo "name=$RG" >> "$GITHUB_OUTPUT"
+          echo "Resource group: $RG"
 
-      - name: Deploy to Azure App Service
-        uses: azure/webapps-deploy@v3
-        with:
-          app-name: 'shivmandir-app'
-          slot-name: 'Production'
-          package: release.zip
-          startup-command: 'node server.js'
+      - name: Configure Azure App Settings
+        run: |
+          az webapp config appsettings set \
+            --name shivmandir-app \
+            --resource-group "${{ steps.rg.outputs.name }}" \
+            --settings \
+              SCM_DO_BUILD_DURING_DEPLOYMENT=false \
+              ENABLE_ORYX_BUILD=false \
+              WEBSITE_NODE_DEFAULT_VERSION="~22" \
+              NODE_ENV=production \
+              PORT=8080 \
+              HOSTNAME=0.0.0.0 \
+              "TEMPLE_DONATION_DB_FILE=/home/temple-donations.json"
+
+      - name: Set startup command
+        run: |
+          az webapp config set \
+            --name shivmandir-app \
+            --resource-group "${{ steps.rg.outputs.name }}" \
+            --startup-file "node server.js"
+
+      - name: Deploy ZIP to Azure App Service
+        run: |
+          az webapp deploy \
+            --name shivmandir-app \
+            --resource-group "${{ steps.rg.outputs.name }}" \
+            --src-path release.zip \
+            --type zip
