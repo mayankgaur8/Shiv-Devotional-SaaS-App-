@@ -21,9 +21,60 @@ const categoryBadge: Record<string, string> = {
 
 let activeVideoLoads = 0
 
+interface PlayOverlayProps {
+  thumbnailSrc: string
+  label: string
+  badge?: string
+  onClick: () => void
+}
+
+function PlayOverlay({ thumbnailSrc, label, badge, onClick }: PlayOverlayProps) {
+  const [imgFailed, setImgFailed] = useState(false)
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      className="relative h-[220px] w-full overflow-hidden group focus:outline-none focus:ring-2 focus:ring-saffron-400/60"
+    >
+      {imgFailed ? (
+        <div className="absolute inset-0 bg-gradient-to-br from-neelkanth-900 via-neelkanth-800 to-saffron-900/50" />
+      ) : (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={thumbnailSrc}
+          alt=""
+          loading="lazy"
+          className="absolute inset-0 h-full w-full object-cover"
+          onError={() => setImgFailed(true)}
+        />
+      )}
+
+      <div className="absolute inset-0 bg-black/45 group-hover:bg-black/30 transition-colors" />
+
+      <div className="absolute inset-0 flex items-center justify-center">
+        <div className="h-14 w-14 rounded-full bg-white/20 border-2 border-white/70 backdrop-blur-sm flex items-center justify-center group-hover:scale-110 transition-transform duration-150">
+          <svg className="h-6 w-6 text-white ml-1" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M8 5v14l11-7z" />
+          </svg>
+        </div>
+      </div>
+
+      {badge && (
+        <span className="absolute bottom-2 right-2 text-[10px] px-2 py-0.5 rounded bg-black/60 text-bhasma-400">
+          {badge}
+        </span>
+      )}
+    </button>
+  )
+}
+
 export default function VideoMediaCard({ item, onError }: VideoMediaCardProps) {
-  // .mov is not browser-supported; auto-use YouTube embed when src is empty or .mov
-  const [useYoutube, setUseYoutube] = useState(() => !!(item.youtubeId && (!item.src || item.src.endsWith('.mov'))))
+  const [useYoutube, setUseYoutube] = useState(
+    () => !!(item.youtubeId && (!item.src || item.src.endsWith('.mov')))
+  )
+  const [youtubeActive, setYoutubeActive] = useState(false)
   const [videoFailed, setVideoFailed] = useState(false)
   const [thumbFailed, setThumbFailed] = useState(false)
   const [isLoadingVideo, setIsLoadingVideo] = useState(true)
@@ -34,6 +85,9 @@ export default function VideoMediaCard({ item, onError }: VideoMediaCardProps) {
 
   const videoSrc = useMemo(() => getMediaUrl(item.src, item.cdnSrc), [item.cdnSrc, item.src])
   const thumbSrc = useMemo(() => getMediaUrl(item.thumbnail), [item.thumbnail])
+  const youtubeThumbnailSrc = item.youtubeId
+    ? `https://img.youtube.com/vi/${item.youtubeId}/hqdefault.jpg`
+    : thumbSrc
 
   const canMount = mountPlayer || retryCount > 0
 
@@ -59,6 +113,8 @@ export default function VideoMediaCard({ item, onError }: VideoMediaCardProps) {
   return (
     <article className="rounded-2xl overflow-hidden border border-white/10 bg-white/3 hover:border-white/20 transition-colors">
       <div className="relative bg-neelkanth-900/60 min-h-[220px]">
+
+        {/* ── Local video: playing ── */}
         {!useYoutube && !videoFailed && canMount && !loadLimited && (
           <>
             {isLoadingVideo && (
@@ -80,7 +136,6 @@ export default function VideoMediaCard({ item, onError }: VideoMediaCardProps) {
                   setIsLoadingVideo(true)
                   return
                 }
-
                 setVideoFailed(true)
                 setIsLoadingVideo(false)
                 onError(item.id)
@@ -99,6 +154,7 @@ export default function VideoMediaCard({ item, onError }: VideoMediaCardProps) {
           </>
         )}
 
+        {/* ── Local video: failed → static thumbnail ── */}
         {!useYoutube && videoFailed && (
           <div className="relative h-[220px]">
             {!thumbFailed ? (
@@ -120,34 +176,45 @@ export default function VideoMediaCard({ item, onError }: VideoMediaCardProps) {
           </div>
         )}
 
+        {/* ── Local video: not yet mounted → thumbnail + play ── */}
         {!useYoutube && !videoFailed && (!canMount || loadLimited) && (
-          <button
-            type="button"
+          <PlayOverlay
+            thumbnailSrc={thumbSrc}
+            label={
+              loadLimited
+                ? `Load limit reached — tap to force-load ${sanitizeText(item.title)}`
+                : `Play ${sanitizeText(item.title)}`
+            }
+            badge={loadLimited ? 'Load limit reached' : undefined}
             onClick={() => {
               setMountPlayer(true)
               setLoadLimited(false)
               setIsLoadingVideo(true)
             }}
-            className="h-[220px] w-full text-center px-4 bg-gradient-to-br from-neelkanth-900 via-neelkanth-800 to-saffron-900/50 text-bhasma-200 text-sm"
-            aria-label={`Load video ${item.title}`}
-          >
-            {loadLimited ? 'Load Limit Reached' : 'Load Video'}
-            <p className="text-xs text-bhasma-400 mt-2">Tap to mount player and reduce background media load.</p>
-            <p className="text-[10px] text-bhasma-500 mt-1">Max active loads target: {mediaSourceConfig.maxSimultaneousLoads}</p>
-          </button>
+          />
         )}
 
-        {useYoutube && item.youtubeId && (
+        {/* ── YouTube: iframe active ── */}
+        {useYoutube && item.youtubeId && youtubeActive && (
           <div className="relative w-full" style={{ paddingTop: '56.25%' }}>
             <iframe
               className="absolute inset-0 h-full w-full"
-              src={`https://www.youtube.com/embed/${item.youtubeId}?rel=0`}
+              src={`https://www.youtube.com/embed/${item.youtubeId}?rel=0&autoplay=1`}
               title={sanitizeText(item.title)}
-              allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
               allowFullScreen
               loading="lazy"
             />
           </div>
+        )}
+
+        {/* ── YouTube: thumbnail + play ── */}
+        {useYoutube && item.youtubeId && !youtubeActive && (
+          <PlayOverlay
+            thumbnailSrc={youtubeThumbnailSrc}
+            label={`Play ${sanitizeText(item.title)}`}
+            onClick={() => setYoutubeActive(true)}
+          />
         )}
       </div>
 
@@ -170,7 +237,10 @@ export default function VideoMediaCard({ item, onError }: VideoMediaCardProps) {
           {item.youtubeId && !useYoutube && (
             <button
               type="button"
-              onClick={() => setUseYoutube(true)}
+              onClick={() => {
+                setUseYoutube(true)
+                setYoutubeActive(true)
+              }}
               className="px-3 py-1.5 rounded-lg text-xs font-medium bg-red-500/20 text-red-300 border border-red-500/30 hover:bg-red-500/30 focus:outline-none focus:ring-2 focus:ring-red-400/60"
               aria-label={`Watch ${item.title} on YouTube`}
             >
@@ -180,7 +250,10 @@ export default function VideoMediaCard({ item, onError }: VideoMediaCardProps) {
           {useYoutube && (
             <button
               type="button"
-              onClick={() => setUseYoutube(false)}
+              onClick={() => {
+                setUseYoutube(false)
+                setYoutubeActive(false)
+              }}
               className="px-3 py-1.5 rounded-lg text-xs font-medium bg-white/5 text-bhasma-300 border border-white/10 hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-saffron-400/60"
               aria-label={`Switch ${item.title} to local video`}
             >

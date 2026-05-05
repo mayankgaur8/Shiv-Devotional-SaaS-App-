@@ -289,6 +289,26 @@ export const devotionalMedia: DevotionalMediaItem[] = [
     popularity: 85,
     allowDownload: false,
   },
+  {
+    id: 'shiv-bhajan-youtube-6MPtcqPuQx0',
+    slug: 'shiv-bhajan-6MPtcqPuQx0',
+    title: 'Har Har Mahadev Bhajan (Video)',
+    artist: 'Devotional',
+    type: 'video',
+    category: 'Bhajan',
+    src: '',
+    thumbnail: defaultThumb,
+    duration: '00:00',
+    description: 'Devotional Shiv Bhajan — Har Har Mahadev.',
+    lyricsHindi: 'हर हर महादेव।',
+    transliteration: 'Har Har Mahadev',
+    meaning: 'Glory to Mahadev, the great Lord Shiva.',
+    tags: ['Video', 'Bhajan', 'YouTube', 'Mahadev'],
+    youtubeId: '6MPtcqPuQx0',
+    releaseDate: '2026-05-06',
+    popularity: 86,
+    allowDownload: false,
+  },
 ]
 
 export const devotionalPlaylists: DevotionalPlaylist[] = [
