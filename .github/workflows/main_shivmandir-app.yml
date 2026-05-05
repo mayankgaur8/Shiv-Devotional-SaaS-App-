@@ -69,8 +69,10 @@ jobs:
           rm -rf release release.zip
           mkdir -p release
 
+          # Copy standalone server (includes minimal node_modules, NO full project node_modules)
           cp -R .next/standalone/. release/
 
+          # Add client-side static chunks (not included in standalone by design)
           mkdir -p release/.next
           cp -R .next/static release/.next/static
 
@@ -78,10 +80,18 @@ jobs:
             cp -R public release/public
           fi
 
+          # Tell Kudu to skip NodeProjectOptimizer / Oryx build pipeline.
+          # This is belt-and-suspenders alongside WEBSITE_RUN_FROM_PACKAGE=1 in Azure Portal.
+          printf '[config]\nSCM_DO_BUILD_DURING_DEPLOYMENT = false\n' > release/.deployment
+
           echo "=== release root ==="
           ls -la release
           echo "=== release/.next ==="
           ls -la release/.next
+          echo "=== Standalone node_modules size ==="
+          du -sh release/node_modules
+          echo "=== Standalone node_modules top-level packages ==="
+          ls release/node_modules | head -20
           echo "=== release/.next/static/chunks/app ==="
           find release/.next/static/chunks/app -type f | sort
 
@@ -89,6 +99,7 @@ jobs:
           test -d release/.next/server       || { echo "::error::.next/server missing"; exit 1; }
           test -d release/.next/static       || { echo "::error::.next/static missing"; exit 1; }
           test -d release/public             || { echo "::error::public missing"; exit 1; }
+          test -f release/.deployment        || { echo "::error::.deployment missing"; exit 1; }
           find release/.next/static/chunks/app -path "*temple*" -type f \
             || { echo "::error::temple page chunk missing from release"; exit 1; }
 
@@ -98,13 +109,17 @@ jobs:
           zip -r ../release.zip .
           cd ..
 
-          echo "ZIP size: $(du -sh release.zip | cut -f1)"
+          echo "=== ZIP size ==="
+          ls -lh release.zip
           echo "=== ZIP top-level ==="
           unzip -l release.zip | head -40
           echo "=== Critical entries ==="
           unzip -l release.zip | grep "server\.js"
-          unzip -l release.zip | grep "\.next/static"
-          unzip -l release.zip | grep "\.next/server"
+          unzip -l release.zip | grep "\.deployment"
+          unzip -l release.zip | grep "\.next/static" | head -5
+          unzip -l release.zip | grep "\.next/server" | head -5
+          echo "=== node_modules entry count in ZIP ==="
+          unzip -l release.zip | grep -c "node_modules" || true
           echo "=== Temple page chunk in ZIP ==="
           unzip -l release.zip | grep "temple" \
             || { echo "::error::temple chunk missing from release.zip"; exit 1; }
