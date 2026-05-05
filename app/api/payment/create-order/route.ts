@@ -4,7 +4,6 @@ import {
   createDonationRecord,
   createRazorpayOrder,
   getRazorpayCredentials,
-  getRazorpayPublicKey,
   listRecentDonations,
   updateDonationRecord,
 } from '@/src/lib/temple-donations'
@@ -50,13 +49,15 @@ export async function POST(request: Request) {
     const body = (await request.json()) as CreateOrderBody
     console.log('[create-order] Request received', { amount: body.amount, name: body.name, purpose: body.purpose })
 
-    if (!getRazorpayCredentials()) {
+    const credentials = getRazorpayCredentials()
+    if (!credentials) {
       console.error('[create-order] Razorpay credentials missing — set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET in Azure App Settings')
       return NextResponse.json(
         { success: false, error: 'Razorpay credentials missing. Please configure server environment.' },
         { status: 500 }
       )
     }
+    console.log('[create-order] key mode:', credentials.keyId.startsWith('rzp_live_') ? 'LIVE' : 'TEST', '| key prefix:', credentials.keyId.slice(0, 15))
 
     const recent = await listRecentDonations(25)
     const duplicate = recent.find(item => matchesDuplicate(item, body))
@@ -67,7 +68,7 @@ export async function POST(request: Request) {
         orderId: duplicate.gatewayOrderId,
         amount: duplicate.amount * 100,
         currency: 'INR',
-        key: getRazorpayPublicKey(),
+        key: credentials.keyId,
         duplicate: true,
       })
     }
@@ -97,7 +98,7 @@ export async function POST(request: Request) {
       orderId: order.id,
       amount: order.amount,
       currency: order.currency,
-      key: getRazorpayPublicKey(),
+      key: credentials.keyId,
     })
   } catch (error) {
     if (error instanceof DonationValidationError) {

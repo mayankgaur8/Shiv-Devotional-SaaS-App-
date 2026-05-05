@@ -20,6 +20,8 @@ interface VerifyBody {
 export async function POST(request: Request) {
   try {
     const body = (await request.json()) as VerifyBody
+    console.log('[verify] Request received', { donationId: body.donationId, orderId: body.razorpay_order_id, paymentId: body.razorpay_payment_id })
+
     const verified = normalizeVerifyInput({
       orderId: body.razorpay_order_id,
       paymentId: body.razorpay_payment_id,
@@ -31,14 +33,17 @@ export async function POST(request: Request) {
       : await getDonationByOrderId(verified.orderId)
 
     if (!donation) {
+      console.error('[verify] Donation record not found', { donationId: body.donationId, orderId: verified.orderId })
       return NextResponse.json({ success: false, error: 'Donation record not found.' }, { status: 404 })
     }
 
     if (donation.status === 'success' && donation.gatewayPaymentId === verified.paymentId) {
+      console.log('[verify] Duplicate verify call, already succeeded', { donationId: donation.id })
       return NextResponse.json({ success: true, duplicate: true, donation })
     }
 
     const isValid = verifyRazorpaySignature(verified.orderId, verified.paymentId, verified.signature)
+    console.log('[verify] Signature valid:', isValid, '| donationId:', donation.id)
 
     const updated = await updateDonationRecord(donation.id, {
       status: isValid ? 'success' : 'failed',
@@ -49,12 +54,14 @@ export async function POST(request: Request) {
     })
 
     if (!isValid) {
+      console.error('[verify] Signature mismatch — check RAZORPAY_KEY_SECRET matches the key used to create the order')
       return NextResponse.json(
         { success: false, error: 'Signature verification failed.', donation: updated },
         { status: 400 }
       )
     }
 
+    console.log('[verify] Payment verified successfully', { donationId: donation.id, paymentId: verified.paymentId })
     return NextResponse.json({ success: true, donation: updated })
   } catch (error) {
     if (error instanceof DonationValidationError) {
