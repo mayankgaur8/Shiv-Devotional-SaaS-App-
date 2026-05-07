@@ -329,26 +329,6 @@ export const devotionalMedia: DevotionalMediaItem[] = [
     popularity: 84,
     allowDownload: false,
   },
-  {
-    id: 'shiv-bhajan-youtube-Zytb9a1XbNA',
-    slug: 'rudra-jagran-shiv-bhajan-Zytb9a1XbNA',
-    title: 'Rudra Jagran - Shiv Bhajan',
-    artist: 'Devotional',
-    type: 'video',
-    category: 'Bhajan',
-    src: '',
-    thumbnail: defaultThumb,
-    duration: '00:00',
-    description: 'Powerful Rudra Jagran — a devotional Shiv bhajan awakening the spirit of Mahadev.',
-    lyricsHindi: 'ॐ नमः शिवाय।',
-    transliteration: 'Om Namah Shivaya',
-    meaning: 'I bow to Lord Shiva, the auspicious inner Self.',
-    tags: ['Video', 'Bhajan', 'YouTube', 'Rudra', 'Jagran'],
-    youtubeId: 'Zytb9a1XbNA',
-    releaseDate: '2026-05-08',
-    popularity: 83,
-    allowDownload: false,
-  },
 ]
 
 export const devotionalPlaylists: DevotionalPlaylist[] = [
