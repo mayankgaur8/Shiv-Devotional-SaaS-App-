@@ -17,6 +17,7 @@ import { safeStorageParse, safeStorageSet } from '@/src/lib/safe-storage'
 import { sanitizeText } from '@/src/lib/sanitize'
 import type { DevotionalMediaItem, SortOption } from '@/src/data/devotionalMedia'
 import VideoMediaCard from '@/components/bhajan/VideoMediaCard'
+import FeaturedBhajanCard from '@/components/bhajan/FeaturedBhajanCard'
 
 type RepeatMode = 'off' | 'one' | 'all'
 
@@ -870,6 +871,8 @@ export default function BhajanClientPage() {
           </section>
         </>
       )}
+
+      <FeaturedBhajanCard isFreePlan />
 
       <section className="rounded-xl p-4 bg-white/3 border border-white/10 text-xs text-bhasma-500 space-y-1">
         <p>Use only licensed, self-created, or royalty-free devotional media.</p>
