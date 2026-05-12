@@ -713,6 +713,16 @@ export default function BhajanClientPage() {
         </div>
       ) : (
         <>
+          <FeaturedBhajanCard
+            videoId="b4c1UUqTU0Y"
+            title="महादेव की दिव्य भक्ति"
+            subtitle="Spiritual Shiv Bhajan"
+            category="Featured Bhajan"
+            description="Experience divine Shiv consciousness through this powerful Mahadev bhajan filled with spiritual vibrations and sacred energy."
+            duration="04:22"
+            isFreePlan={false}
+          />
+
           <section className="mb-10">
             <h2 className="text-xs uppercase tracking-widest text-bhasma-500 font-semibold mb-4">Audio Library</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -872,7 +882,15 @@ export default function BhajanClientPage() {
         </>
       )}
 
-      <FeaturedBhajanCard isFreePlan />
+      <FeaturedBhajanCard
+        videoId="msSY1Od4WrE"
+        title="BUM BUM MAHAKAAL (Anthem)"
+        subtitle="Shiv Anthem • Mahakaal Energy"
+        category="Bhajan"
+        description="Powerful Shiv Anthem invoking Mahakaal energy — a cinematic devotional experience for Mahadev."
+        duration="03:02"
+        isFreePlan
+      />
 
       <section className="rounded-xl p-4 bg-white/3 border border-white/10 text-xs text-bhasma-500 space-y-1">
         <p>Use only licensed, self-created, or royalty-free devotional media.</p>

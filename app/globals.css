@@ -119,3 +119,19 @@ body {
 .sacred-progress {
   background: linear-gradient(90deg, #FF6B35, #D4AF37);
 }
+
+/* Featured bhajan card breathing aura */
+@keyframes featured-aura-glow {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(255, 107, 53, 0.08), 0 0 60px rgba(255, 107, 53, 0.03);
+  }
+  50% {
+    box-shadow: 0 0 40px rgba(255, 107, 53, 0.22), 0 0 80px rgba(255, 107, 53, 0.09), 0 0 120px rgba(212, 175, 55, 0.05);
+  }
+}
+.featured-aura {
+  animation: featured-aura-glow 5s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .featured-aura { animation: none; }
+}
